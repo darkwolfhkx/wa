@@ -22,5 +22,3 @@ jobs:
 
       - name: Start AI Bot
         run: npm start
-        env:
-          NODE_ENV: production
