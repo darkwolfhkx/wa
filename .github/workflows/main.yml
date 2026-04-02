@@ -1,8 +1,8 @@
-name: JavaGoat-WhatsApp-Bot
+name: LongCat-WhatsApp-AI-Bot
 
 on:
   workflow_dispatch:
-  schedule: 
+  schedule:
     - cron: '0 */5 * * *' 
 
 jobs:
@@ -21,6 +21,4 @@ jobs:
         run: npm install
 
       - name: Start AI Bot
-        env:
-          FIREBASE_URL: ${{ secrets.FIREBASE_URL }}
         run: npm start
