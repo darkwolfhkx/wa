@@ -2,15 +2,23 @@ const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLat
 const qrcode = require('qrcode-terminal');
 const pino = require('pino');
 const axios = require('axios');
+const fs = require('fs');
 
-// 🔑 OPENROUTER API KEY (from your HTML file)
-const OPENROUTER_API_KEY = "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";
+// Clear old session to force fresh start
+const sessionPath = 'session_data';
+if (fs.existsSync(sessionPath)) {
+    console.log('🗑️ Removing old session data...');
+    fs.rmSync(sessionPath, { recursive: true, force: true });
+}
+
+// 🔑 YOUR OPENROUTER API KEY (Configured)
+const OPENROUTER_API_KEY = "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";
 const AI_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 // Store conversation history for each user
 const userConversations = new Map();
 
-// Default system prompt for AI - Friendly assistant
+// Default system prompt for AI
 const SYSTEM_PROMPT = {
   role: "system",
   content: "You are a helpful, concise, and friendly assistant. Answer clearly and keep responses warm but professional. You can help with coding, ideas, explanations, and general questions. Keep responses natural and conversational."
@@ -41,7 +49,7 @@ async function getAIResponse(userMessage, userId) {
     }
     
     const requestBody = {
-      model: "openai/gpt-3.5-turbo",  // Default model
+      model: "openai/gpt-3.5-turbo",
       messages: conversation,
       max_tokens: 800,
       temperature: 0.7,
@@ -61,7 +69,6 @@ async function getAIResponse(userMessage, userId) {
 
     if (response.data && response.data.choices && response.data.choices[0]) {
       const assistantReply = response.data.choices[0].message.content;
-      // Save assistant response to conversation
       conversation.push({ role: "assistant", content: assistantReply });
       return assistantReply;
     } else {
@@ -87,10 +94,18 @@ function clearConversation(userId) {
     SYSTEM_PROMPT,
     { role: "assistant", content: "👋 Hi there! I'm your AI assistant powered by OpenRouter. Ask me anything - coding help, general questions, or just have a chat! How can I help you today?" }
   ]);
-  return "🧹 Conversation history cleared! You can start fresh with me now.";
+  return "🧹 Conversation cleared! You can start fresh with me now.";
 }
 
 async function startBot() {
+  // Check if API key is present
+  if (!OPENROUTER_API_KEY) {
+    console.error('\n❌ ERROR: OpenRouter API key is missing!\n');
+    process.exit(1);
+  }
+  
+  console.log('\n✅ OpenRouter API Key loaded successfully');
+
   const { state, saveCreds } = await useMultiFileAuthState('session_data');
   const { version } = await fetchLatestBaileysVersion();
 
@@ -99,7 +114,7 @@ async function startBot() {
     auth: state,
     printQRInTerminal: false,
     logger: pino({ level: 'silent' }),
-    browser: ["JavaGoat", "AI", "1.0"] 
+    browser: ["JavaGoat", "AI", "2.0"] 
   });
 
   sock.ev.on('connection.update', (update) => {
@@ -109,19 +124,14 @@ async function startBot() {
       console.clear(); 
       console.log('\n╔══════════════════════════════════════════════════════════╗');
       console.log('║     📱 SCAN THIS QR CODE WITH WHATSAPP                    ║');
-      console.log('╠══════════════════════════════════════════════════════════╣');
-      console.log('║                                                          ║');
-      qrcode.generate(qr, { small: true });
-      console.log('║                                                          ║');
-      console.log('╠══════════════════════════════════════════════════════════╣');
-      console.log('║  💡 Open WhatsApp > Settings > Linked Devices            ║');
-      console.log('║  📱 Tap "Link a Device" and scan this QR code            ║');
       console.log('╚══════════════════════════════════════════════════════════╝\n');
+      qrcode.generate(qr, { small: true });
+      console.log('\n💡 Open WhatsApp > Settings > Linked Devices > Link a Device\n');
     }
 
     if (connection === 'open') {
       console.log('\n✅ JAVAGOAT AI BOT IS ONLINE!');
-      console.log('🤖 AI Model: OpenRouter (GPT-3.5 Turbo)');
+      console.log('🤖 AI Engine: OpenRouter (GPT-3.5 Turbo)');
       console.log('💬 Bot is ready to chat on WhatsApp!\n');
     }
     
@@ -147,15 +157,15 @@ async function startBot() {
 
     if (!text) return;
 
-    console.log(`📩 [${senderNumber}]: ${text.substring(0, 60)}${text.length > 60 ? '...' : ''}`);
+    console.log(`📩 [${senderNumber}]: ${text.substring(0, 50)}${text.length > 50 ? '...' : ''}`);
 
     const lowerText = text.toLowerCase();
     
-    // --- COMMANDS ---
+    // Commands
     if (lowerText === '/clear' || lowerText === '/reset' || lowerText === 'clear chat' || lowerText === 'clear') {
       const response = clearConversation(sender);
       await sock.sendMessage(sender, { text: response });
-      console.log(`🤖 [${senderNumber}]: Cleared conversation`);
+      console.log(`🤖 [${senderNumber}]: Conversation cleared`);
       return;
     }
     
@@ -238,7 +248,10 @@ Type */help* for commands`;
 }
 
 // Start the bot
-console.log('\n🚀 Starting JavaGoat AI WhatsApp Bot...\n');
+console.log('\n🚀 Starting JavaGoat AI WhatsApp Bot...');
+console.log('🔑 Using OpenRouter API Key: ' + OPENROUTER_API_KEY.substring(0, 15) + '...');
+console.log('💬 Pure AI Chat Mode - No food ordering\n');
+
 startBot().catch(err => {
   console.error("❌ Fatal error:", err);
   process.exit(1);
