@@ -10,20 +10,20 @@ const AI_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 // Store conversation history for each user
 const userConversations = new Map();
 
-// Default system prompt for AI
+// Default system prompt for AI - Friendly assistant
 const SYSTEM_PROMPT = {
   role: "system",
-  content: "You are a helpful, concise, and friendly assistant. Answer clearly and keep responses warm but professional. You can help with coding, ideas, explanations, and general questions."
+  content: "You are a helpful, concise, and friendly assistant. Answer clearly and keep responses warm but professional. You can help with coding, ideas, explanations, and general questions. Keep responses natural and conversational."
 };
 
 // Function to get AI response from OpenRouter
-async function getAIResponse(userMessage, userId, model = "openai/gpt-3.5-turbo") {
+async function getAIResponse(userMessage, userId) {
   try {
     // Get or create conversation history for this user
     if (!userConversations.has(userId)) {
       userConversations.set(userId, [
         SYSTEM_PROMPT,
-        { role: "assistant", content: "Hey there! I'm your OpenRouter AI assistant. Ask me anything — code, ideas, explanations. Let's chat ✨" }
+        { role: "assistant", content: "👋 Hi there! I'm your AI assistant powered by OpenRouter. Ask me anything - coding help, general questions, or just have a chat! How can I help you today?" }
       ]);
     }
     
@@ -32,17 +32,18 @@ async function getAIResponse(userMessage, userId, model = "openai/gpt-3.5-turbo"
     // Add user message to conversation
     conversation.push({ role: "user", content: userMessage });
     
-    // Keep only last 20 messages to avoid token limits
-    if (conversation.length > 21) {
+    // Keep only last 15 messages to avoid token limits
+    if (conversation.length > 17) {
       const systemMsg = conversation[0];
-      const recentMsgs = conversation.slice(-20);
-      userConversations.set(userId, [systemMsg, ...recentMsgs]);
+      const welcomeMsg = conversation[1];
+      const recentMsgs = conversation.slice(-15);
+      userConversations.set(userId, [systemMsg, welcomeMsg, ...recentMsgs]);
     }
     
     const requestBody = {
-      model: model,
+      model: "openai/gpt-3.5-turbo",  // Default model
       messages: conversation,
-      max_tokens: 600,
+      max_tokens: 800,
       temperature: 0.7,
       top_p: 0.9,
       stream: false,
@@ -53,7 +54,7 @@ async function getAIResponse(userMessage, userId, model = "openai/gpt-3.5-turbo"
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
         'HTTP-Referer': 'https://github.com/javagoat',
-        'X-Title': 'JavaGoat WhatsApp Bot'
+        'X-Title': 'JavaGoat WhatsApp AI Bot'
       },
       timeout: 30000
     });
@@ -76,7 +77,7 @@ async function getAIResponse(userMessage, userId, model = "openai/gpt-3.5-turbo"
     } else if (error.code === 'ECONNABORTED') {
       return "⏱️ Request timeout. Please try again.";
     }
-    return "🤖 Sorry, I'm having trouble connecting to my AI brain. Please try again in a moment.";
+    return "🤖 Sorry, I'm having trouble connecting right now. Please try again in a moment.";
   }
 }
 
@@ -84,16 +85,9 @@ async function getAIResponse(userMessage, userId, model = "openai/gpt-3.5-turbo"
 function clearConversation(userId) {
   userConversations.set(userId, [
     SYSTEM_PROMPT,
-    { role: "assistant", content: "Hey there! I'm your OpenRouter AI assistant. Ask me anything — code, ideas, explanations. Let's chat ✨" }
+    { role: "assistant", content: "👋 Hi there! I'm your AI assistant powered by OpenRouter. Ask me anything - coding help, general questions, or just have a chat! How can I help you today?" }
   ]);
   return "🧹 Conversation history cleared! You can start fresh with me now.";
-}
-
-// Change AI model for a user
-function changeModel(userId, model) {
-  const validModels = ['gpt-3.5-turbo', 'gemini', 'mistral', 'llama'];
-  // Store model preference (simplified - you can expand this)
-  return `🤖 AI model preference saved. Current conversations will continue with the selected model.`;
 }
 
 async function startBot() {
@@ -105,7 +99,7 @@ async function startBot() {
     auth: state,
     printQRInTerminal: false,
     logger: pino({ level: 'silent' }),
-    browser: ["JavaGoat", "AI", "1"] 
+    browser: ["JavaGoat", "AI", "1.0"] 
   });
 
   sock.ev.on('connection.update', (update) => {
@@ -113,18 +107,22 @@ async function startBot() {
     
     if (qr) {
       console.clear(); 
-      console.log('\n==================================================');
-      console.log('📱 SCAN THIS QR CODE WITH WHATSAPP');
-      console.log('==================================================\n');
-      qrcode.generate(qr, { small: true }); 
-      console.log('\n==================================================');
-      console.log('💡 Open WhatsApp > Settings > Linked Devices > Link a Device');
-      console.log('==================================================\n');
+      console.log('\n╔══════════════════════════════════════════════════════════╗');
+      console.log('║     📱 SCAN THIS QR CODE WITH WHATSAPP                    ║');
+      console.log('╠══════════════════════════════════════════════════════════╣');
+      console.log('║                                                          ║');
+      qrcode.generate(qr, { small: true });
+      console.log('║                                                          ║');
+      console.log('╠══════════════════════════════════════════════════════════╣');
+      console.log('║  💡 Open WhatsApp > Settings > Linked Devices            ║');
+      console.log('║  📱 Tap "Link a Device" and scan this QR code            ║');
+      console.log('╚══════════════════════════════════════════════════════════╝\n');
     }
 
     if (connection === 'open') {
-      console.log('✅ JAVAGOAT AI BOT IS ONLINE!');
-      console.log('🤖 AI Model: OpenRouter (GPT/Gemini/Mistral/Llama)');
+      console.log('\n✅ JAVAGOAT AI BOT IS ONLINE!');
+      console.log('🤖 AI Model: OpenRouter (GPT-3.5 Turbo)');
+      console.log('💬 Bot is ready to chat on WhatsApp!\n');
     }
     
     if (connection === 'close') {
@@ -149,90 +147,74 @@ async function startBot() {
 
     if (!text) return;
 
-    console.log(`📩 Message from ${senderNumber}: ${text.substring(0, 50)}${text.length > 50 ? '...' : ''}`);
+    console.log(`📩 [${senderNumber}]: ${text.substring(0, 60)}${text.length > 60 ? '...' : ''}`);
 
-    // --- COMMAND HANDLERS ---
     const lowerText = text.toLowerCase();
     
-    // Clear conversation command
-    if (lowerText === '/clear' || lowerText === '/reset' || lowerText === 'clear chat') {
+    // --- COMMANDS ---
+    if (lowerText === '/clear' || lowerText === '/reset' || lowerText === 'clear chat' || lowerText === 'clear') {
       const response = clearConversation(sender);
       await sock.sendMessage(sender, { text: response });
+      console.log(`🤖 [${senderNumber}]: Cleared conversation`);
       return;
     }
     
-    // Help command
     if (lowerText === '/help' || lowerText === 'help' || lowerText === 'commands') {
       const helpMessage = `🤖 *JavaGoat AI Bot Commands*
         
-*Chat normally* - Just type any message!
-*/clear* or *clear chat* - Reset conversation history
-*/model* - Show available AI models
-*/ping* - Check bot response time
-*/about* - About this bot
+┌─────────────────────────────────┐
+│  💬 *Just type anything* - Chat with AI  │
+│  🗑️ */clear* - Reset conversation       │
+│  ❓ */help* - Show this menu           │
+│  ℹ️ */about* - Bot information         │
+│  🏓 */ping* - Check bot status         │
+└─────────────────────────────────┘
 
-💡 *Tips:*
-- I remember our conversation context
-- Ask me anything about coding, general knowledge, or just chat!
-- Each conversation is private to you
+✨ *Features:*
+• Remembers our conversation
+• Powered by OpenRouter AI (GPT-3.5)
+• Ask anything - coding, questions, chat!
 
-✨ *Powered by OpenRouter AI*`;
+💡 *Try asking me something now!*`;
       
       await sock.sendMessage(sender, { text: helpMessage });
       return;
     }
     
-    // Model info command
-    if (lowerText === '/model') {
-      const modelMessage = `🤖 *Available AI Models*
-      
-*Default:* GPT-3.5 Turbo (Fast & balanced)
-*Others available via OpenRouter:*
-• Gemini 2.0 Flash
-• Mistral 7B
-• Llama 3.2 3B
-
-Current conversation uses GPT-3.5 Turbo for best performance.
-
-Type */*help for more commands`;
-      
-      await sock.sendMessage(sender, { text: modelMessage });
-      return;
-    }
-    
-    // Ping command
-    if (lowerText === '/ping') {
-      const startTime = Date.now();
-      await sock.sendMessage(sender, { text: "🏓 Pinging AI server..." });
-      // Just respond quickly
-      return;
-    }
-    
-    // About command
-    if (lowerText === '/about') {
+    if (lowerText === '/about' || lowerText === 'about') {
       const aboutMessage = `🤖 *JavaGoat AI WhatsApp Bot*
       
-*Version:* 2.0
-*AI Engine:* OpenRouter API
-*Features:*
-• Multi-turn conversations
-• Memory of chat history
-• Multiple AI models support
-• Fast responses
+╔══════════════════════════════╗
+║  🤖 *AI Engine:* OpenRouter   ║
+║  🧠 *Model:* GPT-3.5 Turbo    ║
+║  💬 *Type:* Conversational AI  ║
+║  📱 *Platform:* WhatsApp       ║
+║  🌐 *Status:* Online           ║
+╚══════════════════════════════╝
 
-*Creator:* JavaGoat
-*Purpose:* AI-powered WhatsApp assistant
+💡 *Features:*
+• Natural conversations
+• Remembers chat history
+• Fast responses
+• Free to use
 
 Type */help* for commands`;
       
       await sock.sendMessage(sender, { text: aboutMessage });
       return;
     }
+    
+    if (lowerText === '/ping' || lowerText === 'ping') {
+      await sock.sendMessage(sender, { text: "🏓 Pong! Bot is alive and responding quickly!" });
+      return;
+    }
 
-    // --- AI RESPONSE FOR ALL OTHER MESSAGES ---
+    // --- AI RESPONSE FOR EVERYTHING ELSE ---
     try {
-      // Show typing indicator (works on WhatsApp)
+      // Show typing indicator
       await sock.sendPresenceUpdate('composing', sender);
+      
+      console.log(`🤖 [${senderNumber}]: Thinking...`);
       
       // Get AI response
       const aiResponse = await getAIResponse(text, sender);
@@ -240,26 +222,30 @@ Type */help* for commands`;
       // Stop typing indicator
       await sock.sendPresenceUpdate('paused', sender);
       
-      // Send response
+      // Send AI response
       await sock.sendMessage(sender, { text: aiResponse });
       
+      console.log(`✅ [${senderNumber}]: Response sent (${aiResponse.length} chars)`);
+      
     } catch (error) {
-      console.error("Error processing message:", error);
+      console.error(`❌ Error processing message from ${senderNumber}:`, error.message);
+      await sock.sendPresenceUpdate('paused', sender);
       await sock.sendMessage(sender, { 
-        text: "❌ Sorry, something went wrong while processing your message. Please try again." 
+        text: "❌ Sorry, something went wrong. Please try again in a moment." 
       });
     }
   });
 }
 
-// Start the bot with error handling
+// Start the bot
+console.log('\n🚀 Starting JavaGoat AI WhatsApp Bot...\n');
 startBot().catch(err => {
-  console.error("Fatal error:", err);
+  console.error("❌ Fatal error:", err);
   process.exit(1);
 });
 
 // Handle graceful shutdown
 process.on('SIGINT', () => {
-  console.log('\n👋 Bot shutting down...');
+  console.log('\n\n👋 Bot shutting down gracefully...');
   process.exit(0);
 });
