@@ -3,7 +3,6 @@ const qrcode = require('qrcode-terminal');
 const pino = require('pino');
 const axios = require('axios');
 const fs = require('fs');
-const readline = require('readline');
 
 // Clear old session
 const sessionPath = 'session_data';
@@ -19,29 +18,6 @@ const MODEL_NAME = "LongCat-Flash-Chat";
 
 // Store conversations
 const userConversations = new Map();
-
-// Create readline interface for phone number input
-const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-});
-
-// Function to ask for phone number
-function askForPhoneNumber() {
-    return new Promise((resolve) => {
-        console.log('\n╔══════════════════════════════════════════════════════════╗');
-        console.log('║     📱 TWO WAYS TO CONNECT:                              ║');
-        console.log('║                                                         ║');
-        console.log('║     1️⃣ SCAN QR CODE (WhatsApp Web)                      ║');
-        console.log('║     2️⃣ ENTER PHONE NUMBER (Pair with code)              ║');
-        console.log('║                                                         ║');
-        console.log('╚══════════════════════════════════════════════════════════╝\n');
-        
-        rl.question('📞 Enter your phone number with country code (e.g., 923001234567): ', (number) => {
-            resolve(number.trim());
-        });
-    });
-}
 
 // System Prompt for Abdullah's AI Assistant
 const SYSTEM_PROMPT = `Tu Abdullah ka AI assistant hai. Yaad rakhna yeh important rules:
@@ -119,22 +95,21 @@ async function startBot() {
         const sock = makeWASocket({
             version,
             auth: state,
-            printQRInTerminal: false,
+            printQRInTerminal: true,  // Show QR in terminal
             logger: pino({ level: 'silent' }),
             browser: ["Abdullah", "AI", "1.0"],
-            // Enable pairing code for phone number linking
             syncFullHistory: false,
             markOnlineOnConnect: true
         });
 
-        // Variable to track if we've asked for phone number
-        let pairingAsked = false;
+        // Flag to track if we've shown pairing info
+        let pairingShown = false;
 
         sock.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect, qr, pairingCode } = update;
             
-            // Handle QR code (traditional method)
-            if (qr && !pairingAsked) {
+            // Show QR Code
+            if (qr && !pairingShown) {
                 console.log('\n╔══════════════════════════════════════════════════════════╗');
                 console.log('║     📱 OPTION 1: SCAN QR CODE WITH WHATSAPP              ║');
                 console.log('╚══════════════════════════════════════════════════════════╝\n');
@@ -142,21 +117,26 @@ async function startBot() {
                 console.log('\n💡 WhatsApp kholen > Settings > Linked Devices > Link a Device\n');
             }
             
-            // Handle pairing code (phone number method)
-            if (pairingCode && !pairingAsked) {
-                pairingAsked = true;
+            // Show Pairing Code (Phone Number Method)
+            if (pairingCode && !pairingShown) {
+                pairingShown = true;
                 console.log('\n╔══════════════════════════════════════════════════════════╗');
                 console.log('║     📱 OPTION 2: PAIR WITH PHONE NUMBER                   ║');
                 console.log('╚══════════════════════════════════════════════════════════╝');
-                console.log('\n🔑 YOUR PAIRING CODE IS:');
+                console.log('\n🔑 YOUR 8-DIGIT PAIRING CODE IS:');
                 console.log('╔══════════════════════════════════════════════════════════╗');
-                console.log(`║     ✨ ${pairingCode} ✨     ║`);
+                console.log(`║                                                          ║`);
+                console.log(`║              ✨ ${pairingCode} ✨              ║`);
+                console.log(`║                                                          ║`);
                 console.log('╚══════════════════════════════════════════════════════════╝');
-                console.log('\n📝 Instructions:');
+                console.log('\n📝 HOW TO CONNECT WITH PHONE NUMBER:');
                 console.log('1️⃣ Open WhatsApp on your phone');
-                console.log('2️⃣ Go to Settings > Linked Devices > Link a Device');
-                console.log('3️⃣ Enter this code when prompted');
-                console.log('4️⃣ Wait for connection...\n');
+                console.log('2️⃣ Go to Settings (Three dots or gear icon)');
+                console.log('3️⃣ Tap on "Linked Devices"');
+                console.log('4️⃣ Tap "Link a Device"');
+                console.log('5️⃣ Enter this 8-digit code when prompted');
+                console.log('6️⃣ Wait for connection...');
+                console.log('\n⏰ Code expires in 2 minutes!\n');
             }
 
             if (connection === 'open') {
@@ -166,43 +146,18 @@ async function startBot() {
                 console.log('║     💬 Roman Urdu mein baat karunga                     ║');
                 console.log('║     📨 Abdullah tak paigham pohancha dunga              ║');
                 console.log('╚══════════════════════════════════════════════════════════╝\n');
-                rl.close(); // Close readline when connected
             }
             
             if (connection === 'close') {
                 const reason = lastDisconnect?.error?.output?.statusCode;
                 if (reason !== DisconnectReason.loggedOut) {
-                    console.log('🔄 Bot dobara start ho raha hai...');
-                    pairingAsked = false;
-                    startBot();
+                    console.log('🔄 Bot disconnected, restarting in 5 seconds...');
+                    setTimeout(startBot, 5000);
                 } else {
                     console.log('❌ Bot logged out. Please restart workflow.');
                 }
             }
         });
-
-        // Ask for phone number after 5 seconds if not connected
-        setTimeout(async () => {
-            if (!sock.authState.creds.registered) {
-                const phoneNumber = await askForPhoneNumber();
-                if (phoneNumber && phoneNumber.length > 0) {
-                    console.log(`\n📞 Requesting pairing code for ${phoneNumber}...`);
-                    try {
-                        const code = await sock.requestPairingCode(phoneNumber);
-                        console.log('\n╔══════════════════════════════════════════════════════════╗');
-                        console.log('║     🔑 YOUR PAIRING CODE                                  ║');
-                        console.log('╚══════════════════════════════════════════════════════════╝');
-                        console.log(`\n     ✨ ${code} ✨\n`);
-                        console.log('📝 Enter this code in WhatsApp:');
-                        console.log('Settings > Linked Devices > Link a Device\n');
-                    } catch (error) {
-                        console.error('❌ Failed to get pairing code:', error.message);
-                        console.log('💡 Make sure the phone number is correct with country code');
-                        console.log('   Example: 923001234567 (Pakistan)');
-                    }
-                }
-            }
-        }, 5000);
 
         sock.ev.on('creds.update', saveCreds);
 
