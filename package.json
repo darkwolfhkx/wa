@@ -1,7 +1,7 @@
 {
-  "name": "javagoat-whatsapp-ai-bot",
-  "version": "2.0.0",
-  "description": "WhatsApp AI Bot powered by OpenRouter",
+  "name": "longcat-whatsapp-ai-bot",
+  "version": "1.0.0",
+  "description": "WhatsApp AI Bot powered by LongCat API",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
