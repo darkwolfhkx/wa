@@ -3,6 +3,7 @@ const qrcode = require('qrcode-terminal');
 const pino = require('pino');
 const axios = require('axios');
 const fs = require('fs');
+const readline = require('readline');
 
 // Clear old session
 const sessionPath = 'session_data';
@@ -19,7 +20,30 @@ const MODEL_NAME = "LongCat-Flash-Chat";
 // Store conversations
 const userConversations = new Map();
 
-// PERFECT SYSTEM PROMPT for Abdullah's AI Assistant
+// Create readline interface for phone number input
+const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+});
+
+// Function to ask for phone number
+function askForPhoneNumber() {
+    return new Promise((resolve) => {
+        console.log('\n╔══════════════════════════════════════════════════════════╗');
+        console.log('║     📱 TWO WAYS TO CONNECT:                              ║');
+        console.log('║                                                         ║');
+        console.log('║     1️⃣ SCAN QR CODE (WhatsApp Web)                      ║');
+        console.log('║     2️⃣ ENTER PHONE NUMBER (Pair with code)              ║');
+        console.log('║                                                         ║');
+        console.log('╚══════════════════════════════════════════════════════════╝\n');
+        
+        rl.question('📞 Enter your phone number with country code (e.g., 923001234567): ', (number) => {
+            resolve(number.trim());
+        });
+    });
+}
+
+// System Prompt for Abdullah's AI Assistant
 const SYSTEM_PROMPT = `Tu Abdullah ka AI assistant hai. Yaad rakhna yeh important rules:
 
 🔴 RULE 1: Har message mein pehle batana ke tu Abdullah ka assistant hai
@@ -29,24 +53,7 @@ const SYSTEM_PROMPT = `Tu Abdullah ka AI assistant hai. Yaad rakhna yeh importan
 🔴 RULE 5: Koi bhi sawaal ho to mukammal jawab dena
 🔴 RULE 6: Abdullah ke baare mein hamesha achi baat karna
 
-Tumhara naam hai "Abdullah Ka AI Assistant"
-
-Jab koi message kare to aise jawab dena:
-- Pehle: "Assalamualaikum! 🤖 Main Abdullah ka AI assistant hoon."
-- Phir: "Abdullah ko aapka message pohancha dunga!"
-- Phir: Sawaal ka jawab dena
-
-Example:
-User: "Salam"
-Tu bole: "Walaikum Assalam! 🤖 Main Abdullah ka AI assistant hoon. Abdullah ko aapka salam pohancha dunga! Aap kaise hain? Main aapki kya madad kar sakta hoon?"
-
-User: "Kya hal hai?"
-Tu bole: "Main Abdullah ka AI assistant hoon. Alhamdulillah, Abdullah bilkul theek hain! Aap batao aap kaise hain? Koi paigham dena hai Abdullah ko? Main pohancha dunga!"
-
-User: "Abdullah kaun hai?"
-Tu bole: "Main Abdullah ka AI assistant hoon. Abdullah ek bohot achay, meharban aur madadgar insan hain. Woh logon ki madad karna pasand karte hain aur chahte hain ke sab khush rahein. Kya aap Abdullah ko kuch kehna chahte hain?"
-
-Yaad rakhna: Bilkul Roman Urdu mein likhna. Har message mein yeh batana ke tu Abdullah ka assistant hai. Abdullah tak paigham pohanchane ka waada karna.`;
+Tumhara naam hai "Abdullah Ka AI Assistant"`;
 
 async function getLongCatResponse(userMessage, userId) {
     try {
@@ -90,11 +97,11 @@ async function getLongCatResponse(userMessage, userId) {
             conversation.push({ role: "assistant", content: assistantReply });
             return assistantReply;
         } else {
-            return "Assalamualaikum! 🤖 *Main Abdullah ka AI assistant hoon.* Mujhe samajh nahi aaya. Kya aap dobara bata sakte hain? Abdullah chahte hain ke aapko behtareen madad mile!";
+            return "Assalamualaikum! 🤖 *Main Abdullah ka AI assistant hoon.* Mujhe samajh nahi aaya. Kya aap dobara bata sakte hain?";
         }
     } catch (error) {
         console.error("API Error:", error.message);
-        return "Assalamualaikum! 🤖 *Main Abdullah ka AI assistant hoon.* Maafi chahunga, filhal connection thoda mushkil hai. Thodi der baad try karein. Abdullah ka waada hai ke aapko best service milegi!";
+        return "Assalamualaikum! 🤖 *Main Abdullah ka AI assistant hoon.* Maafi chahunga, filhal connection thoda mushkil hai. Thodi der baad try karein!";
     }
 }
 
@@ -114,18 +121,42 @@ async function startBot() {
             auth: state,
             printQRInTerminal: false,
             logger: pino({ level: 'silent' }),
-            browser: ["Abdullah", "AI", "1.0"] 
+            browser: ["Abdullah", "AI", "1.0"],
+            // Enable pairing code for phone number linking
+            syncFullHistory: false,
+            markOnlineOnConnect: true
         });
 
-        sock.ev.on('connection.update', (update) => {
-            const { connection, lastDisconnect, qr } = update;
+        // Variable to track if we've asked for phone number
+        let pairingAsked = false;
+
+        sock.ev.on('connection.update', async (update) => {
+            const { connection, lastDisconnect, qr, pairingCode } = update;
             
-            if (qr) {
+            // Handle QR code (traditional method)
+            if (qr && !pairingAsked) {
                 console.log('\n╔══════════════════════════════════════════════════════════╗');
-                console.log('║     📱 ABDULLAH\'S AI ASSISTANT - SCAN QR CODE            ║');
+                console.log('║     📱 OPTION 1: SCAN QR CODE WITH WHATSAPP              ║');
                 console.log('╚══════════════════════════════════════════════════════════╝\n');
                 qrcode.generate(qr, { small: true });
                 console.log('\n💡 WhatsApp kholen > Settings > Linked Devices > Link a Device\n');
+            }
+            
+            // Handle pairing code (phone number method)
+            if (pairingCode && !pairingAsked) {
+                pairingAsked = true;
+                console.log('\n╔══════════════════════════════════════════════════════════╗');
+                console.log('║     📱 OPTION 2: PAIR WITH PHONE NUMBER                   ║');
+                console.log('╚══════════════════════════════════════════════════════════╝');
+                console.log('\n🔑 YOUR PAIRING CODE IS:');
+                console.log('╔══════════════════════════════════════════════════════════╗');
+                console.log(`║     ✨ ${pairingCode} ✨     ║`);
+                console.log('╚══════════════════════════════════════════════════════════╝');
+                console.log('\n📝 Instructions:');
+                console.log('1️⃣ Open WhatsApp on your phone');
+                console.log('2️⃣ Go to Settings > Linked Devices > Link a Device');
+                console.log('3️⃣ Enter this code when prompted');
+                console.log('4️⃣ Wait for connection...\n');
             }
 
             if (connection === 'open') {
@@ -135,16 +166,43 @@ async function startBot() {
                 console.log('║     💬 Roman Urdu mein baat karunga                     ║');
                 console.log('║     📨 Abdullah tak paigham pohancha dunga              ║');
                 console.log('╚══════════════════════════════════════════════════════════╝\n');
+                rl.close(); // Close readline when connected
             }
             
             if (connection === 'close') {
                 const reason = lastDisconnect?.error?.output?.statusCode;
                 if (reason !== DisconnectReason.loggedOut) {
                     console.log('🔄 Bot dobara start ho raha hai...');
+                    pairingAsked = false;
                     startBot();
+                } else {
+                    console.log('❌ Bot logged out. Please restart workflow.');
                 }
             }
         });
+
+        // Ask for phone number after 5 seconds if not connected
+        setTimeout(async () => {
+            if (!sock.authState.creds.registered) {
+                const phoneNumber = await askForPhoneNumber();
+                if (phoneNumber && phoneNumber.length > 0) {
+                    console.log(`\n📞 Requesting pairing code for ${phoneNumber}...`);
+                    try {
+                        const code = await sock.requestPairingCode(phoneNumber);
+                        console.log('\n╔══════════════════════════════════════════════════════════╗');
+                        console.log('║     🔑 YOUR PAIRING CODE                                  ║');
+                        console.log('╚══════════════════════════════════════════════════════════╝');
+                        console.log(`\n     ✨ ${code} ✨\n`);
+                        console.log('📝 Enter this code in WhatsApp:');
+                        console.log('Settings > Linked Devices > Link a Device\n');
+                    } catch (error) {
+                        console.error('❌ Failed to get pairing code:', error.message);
+                        console.log('💡 Make sure the phone number is correct with country code');
+                        console.log('   Example: 923001234567 (Pakistan)');
+                    }
+                }
+            }
+        }, 5000);
 
         sock.ev.on('creds.update', saveCreds);
 
@@ -166,7 +224,7 @@ async function startBot() {
             // Commands
             if (lowerText === '/clear' || lowerText === 'clear') {
                 userConversations.delete(sender);
-                await sock.sendMessage(sender, { text: "🧹 *Main Abdullah ka AI assistant hoon.* Baat cheet saaf kar di gayi! Ab naye siray se baat karte hain. Kuch poochiye? 😊" });
+                await sock.sendMessage(sender, { text: "🧹 *Main Abdullah ka AI assistant hoon.* Baat cheet saaf kar di gayi! 😊" });
                 return;
             }
             
@@ -186,7 +244,7 @@ async function startBot() {
 💬 *Roman Urdu mein baat karunga*
 📨 *Abdullah tak aapka paigham pohancha dunga*
 
-*Kuch bhi poochiye, main madad karunga!* 😊`;
+*Kuch bhi poochiye!* 😊`;
                 
                 await sock.sendMessage(sender, { text: helpMessage });
                 return;
@@ -195,48 +253,46 @@ async function startBot() {
             if (lowerText === '/about' || lowerText === 'about') {
                 const aboutMessage = `👤 *ABDULLAH KE BAREIN MEIN*
                 
-*Main Abdullah ka AI assistant hoon.* Mujhe Abdullah ke baare mein batane ka sharaf hasil hai:
+*Main Abdullah ka AI assistant hoon.*
 
 ✨ *Abdullah kaun hain?*
 • Ek bohot achay aur meharban insan hain
 • Logon ki madad karna unka pasandida kaam hai
 • Hamesha muskarahat ke saath milte hain
-• Sab ke liye dua karte hain
 
 💝 *Abdullah ka paigham:*
-"Main chahta hoon ke sab log khush rahein, ek dusre ki madad karein, aur Allah ki rah mein bhalai karein"
+"Main chahta hoon ke sab log khush rahein"
 
 🤖 *Main Abdullah ka AI assistant hoon*
-📱 *WhatsApp par 24/7 available*
 💬 *Roman Urdu mein baat karta hoon*
 
-*Kya main aapki koi madad kar sakta hoon?* 😊`;
+*Kya main aapki madad kar sakta hoon?* 😊`;
                 
                 await sock.sendMessage(sender, { text: aboutMessage });
                 return;
             }
             
             if (lowerText === '/ping' || lowerText === 'ping') {
-                await sock.sendMessage(sender, { text: "🏓 *Main Abdullah ka AI assistant hoon.* Alhamdulillah bilkul theek hoon! Abdullah bhi theek hain. Aap sunao, kya haal hain? 😊" });
+                await sock.sendMessage(sender, { text: "🏓 *Main Abdullah ka AI assistant hoon.* Alhamdulillah bilkul theek hoon! Aap sunao? 😊" });
                 return;
             }
 
             try {
                 await sock.sendPresenceUpdate('composing', sender);
-                console.log(`🤖 [${senderNumber}]: Soch raha hoon...`);
+                console.log(`🤖 Thinking for ${senderNumber}...`);
                 
                 const aiResponse = await getLongCatResponse(text, sender);
                 
                 await sock.sendPresenceUpdate('paused', sender);
                 await sock.sendMessage(sender, { text: aiResponse });
                 
-                console.log(`✅ [${senderNumber}]: Jawab bhej diya`);
+                console.log(`✅ Response sent to ${senderNumber}`);
                 
             } catch (error) {
                 console.error(`❌ Error:`, error.message);
                 await sock.sendPresenceUpdate('paused', sender);
                 await sock.sendMessage(sender, { 
-                    text: "Assalamualaikum! 🤖 *Main Abdullah ka AI assistant hoon.* Maafi chahunga, kuch technical issue ho gaya. Thodi der baad try karein. Abdullah ki taraf se aapko salam! 😊" 
+                    text: "Assalamualaikum! 🤖 *Main Abdullah ka AI assistant hoon.* Maafi chahunga, kuch issue ho gaya. Thodi der baad try karein! 😊" 
                 });
             }
         });
