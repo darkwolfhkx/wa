@@ -1,4 +1,4 @@
-name: LongCat-WhatsApp-AI-Bot
+name: Abdullah-WhatsApp-AI-Bot
 
 on:
   workflow_dispatch:
@@ -17,19 +17,10 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Check Node version
-        run: node --version
-
       - name: Install Dependencies
-        run: |
-          npm install
-          npm list --depth=0
-
-      - name: Check if index.js exists
-        run: ls -la
-
-      - name: Test code syntax
-        run: node -c index.js
+        run: npm install
 
       - name: Start AI Bot
         run: npm start
+        env:
+          NODE_ENV: production
