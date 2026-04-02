@@ -83,27 +83,11 @@ async function getLongCatResponse(userMessage, userId) {
 
 async function startBot() {
     try {
-        console.log('\n');
-        console.log('╔════════════════════════════════════════════════════════════════╗');
-        console.log('║                 🤖 ABDULLAH\'S AI ASSISTANT                     ║');
-        console.log('║                                                               ║');
-        console.log('║           "Main Abdullah ka AI assistant hoon"                ║');
-        console.log('║           "Abdullah ko aapka message pohancha dunga"          ║');
-        console.log('╚════════════════════════════════════════════════════════════════╝');
-        
-        console.log('\n╔════════════════════════════════════════════════════════════════╗');
-        console.log('║              📱 TWO WAYS TO CONNECT                            ║');
-        console.log('╠════════════════════════════════════════════════════════════════╣');
-        console.log('║                                                               ║');
-        console.log('║   🔹 OPTION 1: SCAN QR CODE                                   ║');
-        console.log('║      → WhatsApp > Settings > Linked Devices > Link a Device  ║');
-        console.log('║      → Scan QR code from terminal                            ║');
-        console.log('║                                                               ║');
-        console.log('║   🔹 OPTION 2: PHONE NUMBER (Pairing Code)                    ║');
-        console.log('║      → WhatsApp > Settings > Linked Devices > Link a Device  ║');
-        console.log('║      → Enter 8-digit code from terminal                      ║');
-        console.log('║                                                               ║');
-        console.log('╚════════════════════════════════════════════════════════════════╝');
+        console.log('╔══════════════════════════════════════════════════════════╗');
+        console.log('║     🤖 ABDULLAH\'S AI ASSISTANT - STARTING...            ║');
+        console.log('║     📱 Roman Urdu mein baat karega                      ║');
+        console.log('║     💬 Khud bolega "Main Abdullah ka AI assistant hoon" ║');
+        console.log('╚══════════════════════════════════════════════════════════╝');
         
         const { state, saveCreds } = await useMultiFileAuthState('session_data');
         const { version } = await fetchLatestBaileysVersion();
@@ -111,71 +95,57 @@ async function startBot() {
         const sock = makeWASocket({
             version,
             auth: state,
-            printQRInTerminal: false,
+            printQRInTerminal: true,  // Show QR in terminal
             logger: pino({ level: 'silent' }),
             browser: ["Abdullah", "AI", "1.0"],
             syncFullHistory: false,
             markOnlineOnConnect: true
         });
 
-        let pairingCodeShown = false;
-        let qrShown = false;
+        // Flag to track if we've shown pairing info
+        let pairingShown = false;
 
         sock.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect, qr, pairingCode } = update;
             
-            // ========== OPTION 1: QR CODE ==========
-            if (qr && !qrShown) {
-                qrShown = true;
-                console.log('\n╔════════════════════════════════════════════════════════════════╗');
-                console.log('║              📱 OPTION 1: SCAN QR CODE                         ║');
-                console.log('╚════════════════════════════════════════════════════════════════╝');
-                console.log('\n');
-                qrcode.generate(qr, { small: false });
-                console.log('\n');
-                console.log('📝 HOW TO SCAN:');
-                console.log('1️⃣ Open WhatsApp on your phone');
-                console.log('2️⃣ Tap on 3 dots (⋮) or Settings');
-                console.log('3️⃣ Select "Linked Devices"');
-                console.log('4️⃣ Tap "Link a Device"');
-                console.log('5️⃣ Scan this QR code with your phone');
-                console.log('\n⏰ QR code refreshes every 20 seconds\n');
+            // Show QR Code
+            if (qr && !pairingShown) {
+                console.log('\n╔══════════════════════════════════════════════════════════╗');
+                console.log('║     📱 OPTION 1: SCAN QR CODE WITH WHATSAPP              ║');
+                console.log('╚══════════════════════════════════════════════════════════╝\n');
+                qrcode.generate(qr, { small: true });
+                console.log('\n💡 WhatsApp kholen > Settings > Linked Devices > Link a Device\n');
             }
             
-            // ========== OPTION 2: PHONE NUMBER PAIRING CODE ==========
-            if (pairingCode && !pairingCodeShown) {
-                pairingCodeShown = true;
-                console.log('\n╔════════════════════════════════════════════════════════════════╗');
-                console.log('║              📱 OPTION 2: PAIRING CODE                         ║');
-                console.log('╚════════════════════════════════════════════════════════════════╝');
-                console.log('\n');
-                console.log('╔════════════════════════════════════════════════════════════════╗');
-                console.log('║                                                               ║');
-                console.log(`║              🔑 YOUR CODE: ${pairingCode}              ║`);
-                console.log('║                                                               ║');
-                console.log('╚════════════════════════════════════════════════════════════════╝');
-                console.log('\n📝 HOW TO USE PAIRING CODE:');
+            // Show Pairing Code (Phone Number Method)
+            if (pairingCode && !pairingShown) {
+                pairingShown = true;
+                console.log('\n╔══════════════════════════════════════════════════════════╗');
+                console.log('║     📱 OPTION 2: PAIR WITH PHONE NUMBER                   ║');
+                console.log('╚══════════════════════════════════════════════════════════╝');
+                console.log('\n🔑 YOUR 8-DIGIT PAIRING CODE IS:');
+                console.log('╔══════════════════════════════════════════════════════════╗');
+                console.log(`║                                                          ║`);
+                console.log(`║              ✨ ${pairingCode} ✨              ║`);
+                console.log(`║                                                          ║`);
+                console.log('╚══════════════════════════════════════════════════════════╝');
+                console.log('\n📝 HOW TO CONNECT WITH PHONE NUMBER:');
                 console.log('1️⃣ Open WhatsApp on your phone');
-                console.log('2️⃣ Tap on 3 dots (⋮) or Settings');
-                console.log('3️⃣ Select "Linked Devices"');
+                console.log('2️⃣ Go to Settings (Three dots or gear icon)');
+                console.log('3️⃣ Tap on "Linked Devices"');
                 console.log('4️⃣ Tap "Link a Device"');
                 console.log('5️⃣ Enter this 8-digit code when prompted');
-                console.log('\n⏰ Code expires in 2 minutes!');
-                console.log('💡 No need to scan QR code, just enter the number!\n');
+                console.log('6️⃣ Wait for connection...');
+                console.log('\n⏰ Code expires in 2 minutes!\n');
             }
 
             if (connection === 'open') {
-                console.log('\n╔════════════════════════════════════════════════════════════════╗');
-                console.log('║         ✅ ABDULLAH\'S AI ASSISTANT IS ONLINE!                  ║');
-                console.log('╠════════════════════════════════════════════════════════════════╣');
-                console.log('║                                                               ║');
-                console.log('║   🤖 "Main Abdullah ka AI assistant hoon"                     ║');
-                console.log('║   💬 Roman Urdu mein baat karunga                            ║');
-                console.log('║   📨 Abdullah tak aapka paigham pohancha dunga               ║');
-                console.log('║                                                               ║');
-                console.log('║   📝 Commands: /help, /clear, /about, /ping                  ║');
-                console.log('║                                                               ║');
-                console.log('╚════════════════════════════════════════════════════════════════╝\n');
+                console.log('\n╔══════════════════════════════════════════════════════════╗');
+                console.log('║     ✅ ABDULLAH\'S AI ASSISTANT IS ONLINE!                ║');
+                console.log('║     🤖 Main Abdullah ka AI assistant hoon                ║');
+                console.log('║     💬 Roman Urdu mein baat karunga                     ║');
+                console.log('║     📨 Abdullah tak paigham pohancha dunga              ║');
+                console.log('╚══════════════════════════════════════════════════════════╝\n');
             }
             
             if (connection === 'close') {
@@ -184,7 +154,7 @@ async function startBot() {
                     console.log('🔄 Bot disconnected, restarting in 5 seconds...');
                     setTimeout(startBot, 5000);
                 } else {
-                    console.log('\n❌ Bot logged out. Please restart workflow.\n');
+                    console.log('❌ Bot logged out. Please restart workflow.');
                 }
             }
         });
