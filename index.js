@@ -1,10 +1,9 @@
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
-const qrcode = require('qrcode-terminal');
 const pino = require('pino');
 const axios = require('axios');
 const fs = require('fs');
 
-// Clear old session
+// Clear old session on each run
 const sessionPath = 'session_data';
 if (fs.existsSync(sessionPath)) {
     console.log('🗑️ Removing old session data...');
@@ -19,28 +18,10 @@ const MODEL_NAME = "LongCat-Flash-Chat";
 // Store conversations
 const userConversations = new Map();
 
-// Store last reply time for each user (to ensure different responses)
-const userLastReply = new Map();
-
-// System Prompt for Abdullah's AI Assistant - Enhanced for unique responses
-const SYSTEM_PROMPT = `Tu Abdullah ka AI assistant hai. Yaad rakhna yeh important rules:
-
-🔴 RULE 1: Har message mein pehle batana ke tu Abdullah ka assistant hai
-🔴 RULE 2: Hamesha yeh kehna "Main Abdullah ka AI assistant hoon. Abdullah ko aapka message pohancha dunga!"
-🔴 RULE 3: Bilkul sirf Roman Urdu mein baat karna (jaise: "Aap kaise hain?", "Main theek hoon")
-🔴 RULE 4: Bohot soft, respectful aur friendly tone rakhna
-🔴 RULE 5: Koi bhi sawaal ho to mukammal jawab dena
-🔴 RULE 6: Abdullah ke baare mein hamesha achi baat karna
-🔴 RULE 7: HAR NAYE MESSAGE mein ALAG TARAH se salam karna (kabhi "Assalamualaikum!", kabhi "Adaab!", kabhi "Namaste!", kabhi "Hello!", kabhi "Aadaab arz hai!")
-🔴 RULE 8: HAR BAAR ALAG ALAG jawab dena, same cheez repeat mat karna
-🔴 RULE 9: Emotions aur emojis change karte rehna
-
-Tumhara naam hai "Abdullah Ka AI Assistant"`;
-
 // Different greeting variations
 const GREETINGS = [
     "Assalamualaikum! 🤖",
-    "Adaab! 🌟",
+    "Adaab! 🌟", 
     "Namaste! 😊",
     "Hello! ✨",
     "Aadaab arz hai! 💫",
@@ -49,7 +30,6 @@ const GREETINGS = [
     "Kaise hain aap? 🌸"
 ];
 
-// Different response variations
 const RESPONSE_VARIANTS = [
     "*Main Abdullah ka AI assistant hoon.* Abdullah ko aapka paigham pohancha dunga!",
     "*Main Abdullah ka AI assistant hoon.* Abdullah tak aapka message pohancha doonga!",
@@ -63,13 +43,25 @@ function getRandomGreeting() {
 }
 
 function getRandomVariant() {
-    return RESPONSE_VARIANTS[Math.floor(Math.random() * RESPONSE_VARIANTS.length)];
+    return RESPONSE_VARIANTS[Math.floor(Math.random() RESPONSE_VARIANTS.length)];
 }
+
+const SYSTEM_PROMPT = `Tu Abdullah ka AI assistant hai. Yaad rakhna yeh important rules:
+
+🔴 RULE 1: Har message mein pehle batana ke tu Abdullah ka assistant hai
+🔴 RULE 2: Hamesha yeh kehna "Main Abdullah ka AI assistant hoon. Abdullah ko aapka message pohancha dunga!"
+🔴 RULE 3: Bilkul sirf Roman Urdu mein baat karna
+🔴 RULE 4: Bohot soft, respectful aur friendly tone rakhna
+🔴 RULE 5: Koi bhi sawaal ho to mukammal jawab dena
+🔴 RULE 6: Abdullah ke baare mein hamesha achi baat karna
+🔴 RULE 7: HAR NAYE MESSAGE mein ALAG TARAH se salam karna
+🔴 RULE 8: HAR BAAR ALAG ALAG jawab dena
+
+Tumhara naam hai "Abdullah Ka AI Assistant"`;
 
 async function getLongCatResponse(userMessage, userId) {
     try {
         if (!userConversations.has(userId)) {
-            // Different initial greeting every time
             const randomGreeting = getRandomGreeting();
             userConversations.set(userId, [
                 { role: "assistant", content: `${randomGreeting} ${getRandomVariant()} Aap batao, main kya madad kar sakta hoon? 😊` }
@@ -92,7 +84,7 @@ async function getLongCatResponse(userMessage, userId) {
         const requestBody = {
             model: MODEL_NAME,
             messages: apiMessages,
-            temperature: 0.9,  // Increased for more variety
+            temperature: 0.9,
             max_tokens: 1000,
             stream: false
         };
@@ -108,7 +100,6 @@ async function getLongCatResponse(userMessage, userId) {
         if (response.data && response.data.choices && response.data.choices[0]) {
             let assistantReply = response.data.choices[0].message.content;
             
-            // Ensure the reply starts with proper greeting and Abdullah intro
             if (!assistantReply.includes("Abdullah ka AI assistant")) {
                 const randomGreeting = getRandomGreeting();
                 assistantReply = `${randomGreeting} ${getRandomVariant()} ${assistantReply}`;
@@ -127,41 +118,12 @@ async function getLongCatResponse(userMessage, userId) {
     }
 }
 
-// FIXED PAIRING CODE FEATURE - For number +923360059371
-async function pairWithCode(sock, phoneNumber) {
-    try {
-        console.log(`\n🔐 Attempting to pair with number: ${phoneNumber}`);
-        const code = await sock.requestPairingCode(phoneNumber);
-        console.log('\n╔══════════════════════════════════════════════════════════╗');
-        console.log('║     🔐 FIXED PAIRING CODE FEATURE                         ║');
-        console.log('╚══════════════════════════════════════════════════════════╝');
-        console.log('\n🔑 YOUR PAIRING CODE IS:');
-        console.log('╔══════════════════════════════════════════════════════════╗');
-        console.log(`║                                                          ║`);
-        console.log(`║              ✨ ${code} ✨              ║`);
-        console.log(`║                                                          ║`);
-        console.log('╚══════════════════════════════════════════════════════════╝');
-        console.log('\n📝 HOW TO CONNECT:');
-        console.log('1️⃣ Open WhatsApp on your phone');
-        console.log('2️⃣ Go to Settings → Linked Devices');
-        console.log('3️⃣ Tap "Link a Device"');
-        console.log('4️⃣ Enter this code when prompted');
-        console.log(`5️⃣ Code is valid for: ${phoneNumber}`);
-        console.log('\n⏰ Code expires in 2 minutes!\n');
-        return code;
-    } catch (error) {
-        console.error('❌ Pairing failed:', error.message);
-        return null;
-    }
-}
-
 async function startBot() {
     try {
         console.log('╔══════════════════════════════════════════════════════════╗');
         console.log('║     🤖 ABDULLAH\'S AI ASSISTANT - STARTING...            ║');
-        console.log('║     📱 Roman Urdu mein baat karega                      ║');
-        console.log('║     💬 Khud bolega "Main Abdullah ka AI assistant hoon" ║');
-        console.log('║     🔐 Fixed Pairing Code: +923360059371                ║');
+        console.log('║     🔐 PAIRING CODE METHOD ONLY                         ║');
+        console.log('║     📱 Link with Phone Number                          ║');
         console.log('╚══════════════════════════════════════════════════════════╝');
         
         const { state, saveCreds } = await useMultiFileAuthState('session_data');
@@ -170,68 +132,50 @@ async function startBot() {
         const sock = makeWASocket({
             version,
             auth: state,
-            printQRInTerminal: true,
+            printQRInTerminal: false,  // QR disabled
             logger: pino({ level: 'silent' }),
             browser: ["Abdullah", "AI", "1.0"],
             syncFullHistory: false,
             markOnlineOnConnect: true
         });
 
-        let pairingShown = false;
-        let fixedPairingAttempted = false;
+        let codeGenerated = false;
 
         sock.ev.on('connection.update', async (update) => {
-            const { connection, lastDisconnect, qr, pairingCode } = update;
+            const { connection, lastDisconnect, pairingCode } = update;
             
-            // Show QR Code
-            if (qr && !pairingShown) {
+            // ONLY SHOW PAIRING CODE - NO QR
+            if (pairingCode && !codeGenerated) {
+                codeGenerated = true;
                 console.log('\n╔══════════════════════════════════════════════════════════╗');
-                console.log('║     📱 OPTION 1: SCAN QR CODE WITH WHATSAPP              ║');
-                console.log('╚══════════════════════════════════════════════════════════╝\n');
-                qrcode.generate(qr, { small: true });
-                console.log('\n💡 WhatsApp kholen > Settings > Linked Devices > Link a Device\n');
-            }
-            
-            // Show Dynamic Pairing Code
-            if (pairingCode && !pairingShown) {
-                pairingShown = true;
-                console.log('\n╔══════════════════════════════════════════════════════════╗');
-                console.log('║     📱 OPTION 2: PAIR WITH PHONE NUMBER                   ║');
+                console.log('║     🔐 YOUR WHATSAPP PAIRING CODE                        ║');
                 console.log('╚══════════════════════════════════════════════════════════╝');
-                console.log('\n🔑 YOUR 8-DIGIT PAIRING CODE IS:');
+                console.log('\n✨ CODE GENERATED SUCCESSFULLY! ✨\n');
                 console.log('╔══════════════════════════════════════════════════════════╗');
                 console.log(`║                                                          ║`);
-                console.log(`║              ✨ ${pairingCode} ✨              ║`);
+                console.log(`║              🔢 ${pairingCode} 🔢              ║`);
                 console.log(`║                                                          ║`);
                 console.log('╚══════════════════════════════════════════════════════════╝');
-                console.log('\n📝 HOW TO CONNECT WITH PHONE NUMBER:');
-                console.log('1️⃣ Open WhatsApp on your phone');
-                console.log('2️⃣ Go to Settings (Three dots or gear icon)');
+                console.log('\n📱 HOW TO CONNECT YOUR WHATSAPP:');
+                console.log('━'.repeat(60));
+                console.log('1️⃣ Open WhatsApp on your mobile phone');
+                console.log('2️⃣ Tap on Settings (3 dots or gear icon)');
                 console.log('3️⃣ Tap on "Linked Devices"');
-                console.log('4️⃣ Tap "Link a Device"');
-                console.log('5️⃣ Enter this 8-digit code when prompted');
+                console.log('4️⃣ Tap on "Link a Device"');
+                console.log(`5️⃣ Enter this code: ${pairingCode}`);
                 console.log('6️⃣ Wait for connection...');
-                console.log('\n⏰ Code expires in 2 minutes!\n');
+                console.log('━'.repeat(60));
+                console.log('\n⏰ Code expires in 2 minutes!');
+                console.log('💡 Make sure your WhatsApp is updated to latest version\n');
             }
 
-            // FIXED PAIRING: Auto attempt for +923360059371
             if (connection === 'open') {
                 console.log('\n╔══════════════════════════════════════════════════════════╗');
-                console.log('║     ✅ ABDULLAH\'S AI ASSISTANT IS ONLINE!                ║');
-                console.log('║     🤖 Main Abdullah ka AI assistant hoon                ║');
-                console.log('║     💬 Roman Urdu mein baat karunga                     ║');
-                console.log('║     📨 Abdullah tak paigham pohancha dunga              ║');
-                console.log('║     📞 Fixed pairing for: +923360059371                 ║');
+                console.log('║     ✅ SUCCESS! BOT CONNECTED SUCCESSFULLY!              ║');
+                console.log('║     🤖 ABDULLAH\'S AI ASSISTANT IS ONLINE!               ║');
+                console.log('║     💬 Now you can chat with the bot                    ║');
+                console.log('║     📨 Send any message to start conversation          ║');
                 console.log('╚══════════════════════════════════════════════════════════╝\n');
-            }
-            
-            // Auto-initiate fixed pairing for Abdullah's number
-            if (!fixedPairingAttempted && !state.creds?.me) {
-                fixedPairingAttempted = true;
-                console.log('\n🔄 Initiating fixed pairing for Abdullah\'s number (+923360059371)...');
-                setTimeout(async () => {
-                    await pairWithCode(sock, "923360059371"); // Without + for the API
-                }, 3000);
             }
             
             if (connection === 'close') {
@@ -240,7 +184,7 @@ async function startBot() {
                     console.log('🔄 Bot disconnected, restarting in 5 seconds...');
                     setTimeout(startBot, 5000);
                 } else {
-                    console.log('❌ Bot logged out. Please restart workflow.');
+                    console.log('❌ Bot logged out. Please run workflow again.');
                 }
             }
         });
@@ -280,7 +224,6 @@ async function startBot() {
 ║  ❓ */help* - Yeh menu dekhein          ║
 ║  ℹ️ */about* - Abdullah ke barein mein ║
 ║  🏓 */ping* - Bot status check         ║
-║  🔐 */pair* - New pairing code         ║
 ╚════════════════════════════════════════╝
 
 ✨ *Main Abdullah ka AI assistant hoon*
@@ -318,16 +261,6 @@ async function startBot() {
             if (lowerText === '/ping' || lowerText === 'ping') {
                 const randomGreeting = getRandomGreeting();
                 await sock.sendMessage(sender, { text: `🏓 ${randomGreeting} *Main Abdullah ka AI assistant hoon.* Alhamdulillah bilkul theek hoon! Aap sunao? 😊` });
-                return;
-            }
-            
-            if (lowerText === '/pair' || lowerText === 'pair') {
-                const code = await pairWithCode(sock, senderNumber);
-                if (code) {
-                    await sock.sendMessage(sender, { text: `🔐 *Main Abdullah ka AI assistant hoon.* Aapka pairing code hai: *${code}*\nWhatsApp mein Settings → Linked Devices → Link a Device mein ye code enter karein! ⏰ 2 minute mein expire ho jayega.` });
-                } else {
-                    await sock.sendMessage(sender, { text: `❌ *Main Abdullah ka AI assistant hoon.* Pairing code generate nahi ho paaya. Thodi der baad try karein!` });
-                }
                 return;
             }
 
