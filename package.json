@@ -1,7 +1,7 @@
 {
-  "name": "longcat-whatsapp-ai-bot",
-  "version": "1.0.0",
-  "description": "WhatsApp AI Bot powered by LongCat API",
+  "name": "abdullah-ai-bot",
+  "version": "2.0.0",
+  "description": "Advanced WhatsApp AI Bot with smart replies",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -13,6 +13,6 @@
     "axios": "^1.6.0"
   },
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=18"
   }
 }
