@@ -1,25 +1,24 @@
-name: Abdullah-AI-Bot
+name: Abdullah-WhatsApp-AI-Bot
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: '0 */5 * * *' 
 
 jobs:
-  run-bot:
+  build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: 📥 Checkout Code
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: ⚙️ Setup Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: 📦 Install Dependencies
+      - name: Install Dependencies
         run: npm install
 
-      - name: 🚀 Start Bot
-        run: node index.js
+      - name: Start AI Bot
+        run: npm start
