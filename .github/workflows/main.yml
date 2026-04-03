@@ -3,7 +3,7 @@ name: Abdullah-WhatsApp-AI-Bot
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 */5 * * *' 
+    - cron: '*/5 * * * *'  # Runs every 5 minutes
 
 jobs:
   build:
@@ -22,3 +22,5 @@ jobs:
 
       - name: Start AI Bot
         run: npm start
+        env:
+          CI: true
