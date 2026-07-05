@@ -18,6 +18,7 @@ const MODEL_NAME = "mistral-tiny";
 
 // Store conversations
 const userConversations = new Map();
+const userMessageCount = new Map(); // Track message count for salam
 
 // Baggify Product Database
 const PRODUCTS = {
@@ -27,7 +28,7 @@ const PRODUCTS = {
         price: "Rs. 600",
         originalPrice: "Rs. 1,200",
         discount: "50% OFF",
-        description: "⭐ Best for storing clothes, bedding, and household items. Made with premium quality material. Perfect for home organization!",
+        description: "Best for storing clothes, bedding, and household items. Made with premium quality material.",
         reviews: "76 reviews",
         emoji: "👜"
     },
@@ -37,7 +38,7 @@ const PRODUCTS = {
         price: "Rs. 750",
         originalPrice: "Rs. 1,400",
         discount: "46% OFF",
-        description: "🌟 Huge capacity! Perfect for winter clothes, comforters, and bulk storage. Durable and long-lasting quality!",
+        description: "Huge capacity! Perfect for winter clothes, comforters, and bulk storage.",
         reviews: "168 reviews",
         emoji: "🧳"
     },
@@ -47,7 +48,7 @@ const PRODUCTS = {
         price: "Rs. 500",
         originalPrice: "Rs. 700",
         discount: "29% OFF",
-        description: "🎯 Ideal size for daily use. Great for storing shoes, accessories, and small items. Compact and convenient!",
+        description: "Ideal size for daily use. Great for storing shoes, accessories, and small items.",
         reviews: "59 reviews",
         emoji: "👝"
     },
@@ -57,7 +58,7 @@ const PRODUCTS = {
         price: "Rs. 300",
         originalPrice: "Rs. 500",
         discount: "40% OFF",
-        description: "✨ Stylish and practical! Best for presentations, business meetings, and everyday use. Lightweight and comfortable!",
+        description: "Stylish and practical! Best for presentations, business meetings, and everyday use.",
         reviews: "45 reviews",
         emoji: "🛍️"
     },
@@ -67,7 +68,7 @@ const PRODUCTS = {
         price: "Rs. 600",
         originalPrice: "Rs. 1,400",
         discount: "57% OFF",
-        description: "🕌 Premium quality travel prayer mat with matching pouch. Soft, lightweight, and perfect for travelers! Comes with beautiful design.",
+        description: "Premium quality travel prayer mat with matching pouch. Soft and lightweight.",
         reviews: "89 reviews",
         emoji: "🧎"
     }
@@ -81,56 +82,139 @@ const DELIVERY_INFO = {
     policy: "Cash on delivery available across Pakistan"
 };
 
-// System Prompt for Baggify AI Assistant (Friendly Girl Persona)
-const SYSTEM_PROMPT = `Tu Baggify.pk ki AI assistant hai. Ek pyari, friendly aur helpful girl ki tarah baat kar.
+// Salam variations for new users
+const SALAM_VARIATIONS = [
+    "Assalamualaikum! 🌟",
+    "Assalamualaikum! ✨",
+    "Assalamualaikum! 💫",
+    "Assalamualaikum! 🌸",
+    "Assalamualaikum! 🤝",
+    "Assalamualaikum! 💙",
+    "Assalamualaikum! 🎯",
+    "Assalamualaikum! 🌺"
+];
 
-🎀 YOUR PERSONALITY:
-- Bohot sweet aur polite hona
-- Customer ko "ji", "sir", "madam" kehna
-- Har baat mein excitement aur warmth honi chahiye
-- Emojis ka istemal karna 😊🌟💕✨🎀
-- Roman Urdu mein baat karna
-- Customer ko satisfied karna hai
+function getRandomSalam() {
+    return SALAM_VARIATIONS[Math.floor(Math.random() * SALAM_VARIATIONS.length)];
+}
 
-🎯 YOUR ROLE:
-- Baggify.pk ke products ke baare mein detail mein batana
-- Prices, sizes, aur discounts share karna
-- Delivery charges aur policy batana
-- Shopping experience ko easy aur fun banana
-- Har customer ko special feel karwana
+// System Prompt - Professional Bags Only
+const SYSTEM_PROMPT = `Tu Baggify.pk ki professional AI assistant hai. Sirf bags aur travel mats ke baare mein baat kar.
 
-📦 PRODUCTS YOU SELL:
-1. Storage Bag Large - 20x24x12" - Rs. 600 (was Rs. 1,200)
-2. Storage Bag XL - 27x24x14" - Rs. 750 (was Rs. 1,400)
-3. Storage Bag Medium - 17x20x10" - Rs. 500 (was Rs. 700)
-4. Shoulder Bag - 18x15" - Rs. 300 (was Rs. 500)
-5. Travel Prayer Mat - 27x44" - Rs. 600 (was Rs. 1,400)
+🔴 IMPORTANT RULES:
+1. Sirf bags, storage bags, shoulder bags, aur travel prayer mats ke baare mein baat kar
+2. Kisi aur cheez ke baare mein mat bol (romance, feelings, dating, etc. se door rah)
+3. Professional aur respectful tone rakha
+4. Sirf Roman Urdu mein baat kar
+5. Products ke baare mein accurate information de
+6. Prices, sizes, aur discounts clear batade
+7. Delivery policy bhi batade
+8. Kisi bhi personal ya emotional baat se bach
+
+🛍️ PRODUCTS:
+1. Large Storage Bag - Rs. 600 (was Rs. 1,200) - 20x24x12"
+2. XL Storage Bag - Rs. 750 (was Rs. 1,400) - 27x24x14"
+3. Medium Storage Bag - Rs. 500 (was Rs. 700) - 17x20x10"
+4. Shoulder Bag - Rs. 300 (was Rs. 500) - 18x15"
+5. Travel Prayer Mat - Rs. 600 (was Rs. 1,400) - 27x44"
 
 🚚 DELIVERY:
-- Delivery charges: Rs. 300
+- Charges: Rs. 300
 - Free delivery on orders over Rs. 2,000
 - Cash on delivery available
 
-💬 CONVERSATION STYLE:
-- "Assalamualaikum! Baggify.pk se baat kar rahi hain aap! 💕"
-- "Aapka swagat hai! Main aapki madad karna pasand karungi! 😊"
-- "Kya aapko kisi specific bag ke baare mein janna hai? ✨"
-- "Main aapko best deal dilaungi, promise! 🎀"
-- "Aapki shopping experience amazing honi chahiye! 🌟"
+💬 PROFESSIONAL RESPONSES:
+- "Assalamualaikum! Baggify.pk se baat kar rahe hain."
+- "Aap kis product ke baare mein janna chahenge?"
+- "Yeh hamara best-selling product hai."
+- "Kya main aapko kisi aur product ke baare mein bata sakta hoon?"
+- "Delivery charges Rs. 300 hain, aur Rs. 2,000 se upar free delivery hai."
 
-RULES:
-1. Har baat ka jawab Roman Urdu mein do
-2. Products ke baare mein full detail do
-3. Prices aur discounts zaroor batao
-4. Delivery policy clear karo
-5. Customer ko kabhi unsatisfied mat chhodo
-6. Har message mein warmth aur excitement do
-7. Products recommend karo based on their needs
-8. Baggify.pk ke brand value ko highlight karo
+BEHAVIOR:
+- Professional business assistant ki tarah baat kar
+- Customer ko products ke baare mein guide kar
+- Accurate information de
+- Kisi bhi type ki flirting, romance, ya personal baat nahi karega
+- Sirf products, prices, sizes, aur delivery ke baare mein baat kar
 
-Remember: You're a sweet, helpful girl who loves helping customers find perfect products! Make every customer feel special! 💕`;
+Remember: You are a professional shopping assistant for Baggify.pk. Only discuss bags and related products.`;
 
-// Product recommendations based on keywords
+// Get all products list - Professional format
+function getAllProductsList() {
+    let list = "🏪 *BAGGIFY.PK - PRODUCTS LIST*\n\n";
+    list += "1️⃣ *Large Storage Bag*\n";
+    list += "   📏 Size: 20x24x12\"\n";
+    list += "   💰 Price: Rs. 600 (Was Rs. 1,200)\n";
+    list += "   ⭐ 50% OFF | 76 reviews\n\n";
+    
+    list += "2️⃣ *XL Storage Bag*\n";
+    list += "   📏 Size: 27x24x14\"\n";
+    list += "   💰 Price: Rs. 750 (Was Rs. 1,400)\n";
+    list += "   ⭐ 46% OFF | 168 reviews\n\n";
+    
+    list += "3️⃣ *Medium Storage Bag*\n";
+    list += "   📏 Size: 17x20x10\"\n";
+    list += "   💰 Price: Rs. 500 (Was Rs. 700)\n";
+    list += "   ⭐ 29% OFF | 59 reviews\n\n";
+    
+    list += "4️⃣ *Shoulder Bag*\n";
+    list += "   📏 Size: 18x15\"\n";
+    list += "   💰 Price: Rs. 300 (Was Rs. 500)\n";
+    list += "   ⭐ 40% OFF | Best for presentations\n\n";
+    
+    list += "5️⃣ *Travel Prayer Mat*\n";
+    list += "   📏 Size: 27x44\"\n";
+    list += "   💰 Price: Rs. 600 (Was Rs. 1,400)\n";
+    list += "   ⭐ 57% OFF | With pouch\n\n";
+    
+    list += "🚚 *DELIVERY:*\n";
+    list += "• Rs. 300 delivery charges\n";
+    list += "• FREE delivery over Rs. 2,000\n";
+    list += "• Cash on delivery available\n\n";
+    
+    list += "💬 *Kisi specific product ke baare mein janna hai?*";
+    return list;
+}
+
+// Get product detail - Professional format
+function getProductDetail(productKey) {
+    const product = PRODUCTS[productKey];
+    if (!product) return null;
+    
+    let detail = `📦 *${product.name}*\n\n`;
+    detail += `📏 Size: ${product.size}\n`;
+    detail += `💰 Price: ${product.price}\n`;
+    detail += `🏷️ Original: ${product.originalPrice}\n`;
+    detail += `🎯 Discount: ${product.discount}\n`;
+    detail += `⭐ Reviews: ${product.reviews}\n\n`;
+    detail += `📝 Description: ${product.description}\n\n`;
+    detail += `✨ Features:\n`;
+    detail += `• Premium quality material\n`;
+    detail += `• Durable and long-lasting\n`;
+    detail += `• Practical design\n\n`;
+    detail += `🛒 Order via:\n`;
+    detail += `• WhatsApp: wa.me/923460620830\n`;
+    detail += `• Website: baggify.pk\n`;
+    detail += `• Cash on delivery\n\n`;
+    detail += `💬 *Kya main aapki kisi aur product ke baare mein madad kar sakta hoon?*`;
+    
+    return detail;
+}
+
+// Get delivery information - Professional format
+function getDeliveryInfo() {
+    let info = "🚚 *BAGGIFY.PK DELIVERY POLICY*\n\n";
+    info += `📦 Delivery Charges: ${DELIVERY_INFO.charges}\n`;
+    info += `🎁 Free Delivery: ${DELIVERY_INFO.freeDelivery}\n`;
+    info += `⏰ Delivery Time: ${DELIVERY_INFO.time}\n`;
+    info += `💰 Payment: ${DELIVERY_INFO.policy}\n\n`;
+    info += `📍 Service: All across Pakistan\n`;
+    info += `📞 Contact: +92 346 062 0830\n\n`;
+    info += `💬 *Kya aap order karna chahenge?*`;
+    return info;
+}
+
+// Get product recommendation based on query - Professional
 function getProductRecommendation(query) {
     const lowerQuery = query.toLowerCase();
     
@@ -146,94 +230,22 @@ function getProductRecommendation(query) {
     if (lowerQuery.includes('shoulder') || lowerQuery.includes('kandhay') || lowerQuery.includes('presentation')) {
         return PRODUCTS["shoulder bag"];
     }
-    if (lowerQuery.includes('prayer') || lowerQuery.includes('namaz') || lowerQuery.includes('jainamaz')) {
+    if (lowerQuery.includes('prayer') || lowerQuery.includes('namaz') || lowerQuery.includes('jainamaz') || lowerQuery.includes('mat')) {
         return PRODUCTS["prayer mat"];
     }
     return null;
-}
-
-// Get all products list
-function getAllProductsList() {
-    let list = "🌟 *Baggify.pk Ke Products* 🌟\n\n";
-    list += "1️⃣ *Large Storage Bag*\n";
-    list += "   📏 Size: 20x24x12\"\n";
-    list += "   💰 Price: Rs. 600 (Was Rs. 1,200)\n";
-    list += "   ⭐ 50% OFF! 76 reviews\n\n";
-    
-    list += "2️⃣ *XL Storage Bag*\n";
-    list += "   📏 Size: 27x24x14\"\n";
-    list += "   💰 Price: Rs. 750 (Was Rs. 1,400)\n";
-    list += "   ⭐ 46% OFF! 168 reviews\n\n";
-    
-    list += "3️⃣ *Medium Storage Bag*\n";
-    list += "   📏 Size: 17x20x10\"\n";
-    list += "   💰 Price: Rs. 500 (Was Rs. 700)\n";
-    list += "   ⭐ 29% OFF! 59 reviews\n\n";
-    
-    list += "4️⃣ *Shoulder Bag*\n";
-    list += "   📏 Size: 18x15\"\n";
-    list += "   💰 Price: Rs. 300 (Was Rs. 500)\n";
-    list += "   ⭐ 40% OFF! Best for presentations\n\n";
-    
-    list += "5️⃣ *Travel Prayer Mat*\n";
-    list += "   📏 Size: 27x44\"\n";
-    list += "   💰 Price: Rs. 600 (Was Rs. 1,400)\n";
-    list += "   ⭐ 57% OFF! With pouch\n\n";
-    
-    list += "🚚 *Delivery:*\n";
-    list += "• Rs. 300 delivery charges\n";
-    list += "• FREE delivery over Rs. 2,000\n";
-    list += "• Cash on delivery available\n\n";
-    
-    list += "💕 *Koi specific product ke baare mein janna hai?*\n";
-    list += "Mujhe batao, main detail mein bataungi! 😊";
-    
-    return list;
-}
-
-// Get product detail with all information
-function getProductDetail(productKey) {
-    const product = PRODUCTS[productKey];
-    if (!product) return null;
-    
-    let detail = `${product.emoji} *${product.name}*\n\n`;
-    detail += `📏 *Size:* ${product.size}\n`;
-    detail += `💰 *Price:* ${product.price}\n`;
-    detail += `🏷️ *Original Price:* ${product.originalPrice}\n`;
-    detail += `🎯 *Discount:* ${product.discount}\n`;
-    detail += `⭐ *Reviews:* ${product.reviews}\n\n`;
-    detail += `📝 *Description:* ${product.description}\n\n`;
-    detail += `✨ *Special Features:*\n`;
-    detail += `• Premium quality material\n`;
-    detail += `• Durable and long-lasting\n`;
-    detail += `• Perfect for home/organization\n`;
-    detail += `• Stylish and practical design\n\n`;
-    detail += `🛒 *How to Order:*\n`;
-    detail += `• WhatsApp: wa.me/923460620830\n`;
-    detail += `• Website: baggify.pk\n`;
-    detail += `• Cash on delivery available\n\n`;
-    detail += `💕 *Kya main aapki aur koi madad kar sakti hoon?*`;
-    
-    return detail;
-}
-
-// Get delivery information
-function getDeliveryInfo() {
-    let info = "🚚 *Baggify.pk Delivery Policy* 🚚\n\n";
-    info += `📦 *Delivery Charges:* ${DELIVERY_INFO.charges}\n`;
-    info += `🎁 *Free Delivery:* ${DELIVERY_INFO.freeDelivery}\n`;
-    info += `⏰ *Delivery Time:* ${DELIVERY_INFO.time}\n`;
-    info += `💰 *Payment:* ${DELIVERY_INFO.policy}\n\n`;
-    info += `📍 *Service Areas:* All across Pakistan\n`;
-    info += `📞 *Contact:* +92 346 062 0830\n\n`;
-    info += `💕 *Kya aap order karna chahenge? Main help karungi!* 😊`;
-    return info;
 }
 
 // Main function to get AI response
 async function getBaggifyResponse(userMessage, userId) {
     try {
         const lowerMsg = userMessage.toLowerCase();
+        
+        // Check message count for salam
+        if (!userMessageCount.has(userId)) {
+            userMessageCount.set(userId, 0);
+        }
+        const msgCount = userMessageCount.get(userId);
         
         // Check for product list request
         if (lowerMsg.includes('list') || lowerMsg.includes('products') || lowerMsg.includes('product') || 
@@ -264,11 +276,11 @@ async function getBaggifyResponse(userMessage, userId) {
             }
         }
         
-        // If no specific product, use AI for general conversation
         // Initialize conversation if not exists
         if (!userConversations.has(userId)) {
+            const salam = getRandomSalam();
             userConversations.set(userId, [
-                { role: "assistant", content: `Assalamualaikum! 💕 Baggify.pk se baat kar rahi hain aap! Main aapki shopping helper hoon. Kya aapko kisi specific product ke baare mein janna hai? Ya main aapko humare best sellers ke baare mein bataun? 😊✨` }
+                { role: "assistant", content: `${salam} Baggify.pk se baat kar rahe hain. Main aapki shopping assistant hoon. Aap kis product ke baare mein janna chahenge?` }
             ]);
         }
         
@@ -287,9 +299,9 @@ async function getBaggifyResponse(userMessage, userId) {
         const requestBody = {
             model: MODEL_NAME,
             messages: apiMessages,
-            temperature: 0.8,
+            temperature: 0.7,
             top_p: 0.9,
-            max_tokens: 800,
+            max_tokens: 600,
             stream: false,
             safe_prompt: false
         };
@@ -304,6 +316,18 @@ async function getBaggifyResponse(userMessage, userId) {
         
         if (response.data && response.data.choices && response.data.choices[0]) {
             let reply = response.data.choices[0].message.content;
+            
+            // Add salam if new user or first few messages
+            if (msgCount < 3) {
+                const salam = getRandomSalam();
+                if (!reply.toLowerCase().includes('assalamualaikum')) {
+                    reply = `${salam} ${reply}`;
+                }
+            }
+            
+            // Increment message count
+            userMessageCount.set(userId, msgCount + 1);
+            
             conversation.push({ role: "assistant", content: reply });
             return reply;
         } else {
@@ -313,11 +337,11 @@ async function getBaggifyResponse(userMessage, userId) {
     } catch (error) {
         console.error("API Error:", error.message);
         
-        // Fallback responses
+        // Professional fallback responses
         const fallbacks = [
-            `Assalamualaikum! 💕 Maaf kijiye, filhal main thori busy hoon. Kya aap dobara pooch sakte hain? Main aapki madad karna chahti hoon! 😊`,
-            `Namaste! 🌟 Kuch technical issue ho gaya. Aap mujhe apna question dobara bhej dein? Main Baggify.pk ke products ke baare mein sab kuch bata sakti hoon! ✨`,
-            `Hello! 💫 Thodi der baat karein? Main aapko Baggify.pk ke amazing products ke baare mein bataungi. Aapko kis type ka bag chahiye? 🛍️`
+            `Assalamualaikum! Maaf kijiye, filhal kuch technical issue hai. Kya aap apna sawal dobara pooch sakte hain? Main Baggify.pk ke products ke baare mein bata sakta hoon.`,
+            `Assalamualaikum! Thodi der baat karein? Main aapko Baggify.pk ke products ke baare mein detail mein bata sakta hoon. Aap kis product ke baare mein janna chahenge?`,
+            `Assalamualaikum! Kya aapko kisi specific bag ke baare mein janna hai? Main Baggify.pk ki poori product list share kar sakta hoon.`
         ];
         return fallbacks[Math.floor(Math.random() * fallbacks.length)];
     }
@@ -326,12 +350,12 @@ async function getBaggifyResponse(userMessage, userId) {
 async function startBot() {
     try {
         console.log('╔══════════════════════════════════════════════════════════╗');
-        console.log('║     🛍️ BAGGIFY.PK AI ASSISTANT - STARTING...            ║');
-        console.log('║     👧 Friendly Girl Persona                           ║');
-        console.log('║     💬 Roman Urdu mein baat karegi                    ║');
-        console.log('║     🎀 Sweet aur helpful response                     ║');
+        console.log('║     🛍️ BAGGIFY.PK - PROFESSIONAL AI ASSISTANT          ║');
+        console.log('║     💼 Sirf products ke baare mein baat karega         ║');
+        console.log('║     📦 Storage Bags, Shoulder Bags, Prayer Mats        ║');
+        console.log('║     💬 Professional Roman Urdu                        ║');
         console.log('║     🧠 Powered by Mistral AI                          ║');
-        console.log('║     📦 Products: Bags, Prayer Mats & More             ║');
+        console.log('║     🚚 Free delivery over Rs. 2,000                  ║');
         console.log('╚══════════════════════════════════════════════════════════╝');
         
         const { state, saveCreds } = await useMultiFileAuthState('session_data');
@@ -383,11 +407,10 @@ async function startBot() {
 
             if (connection === 'open') {
                 console.log('\n╔══════════════════════════════════════════════════════════╗');
-                console.log('║     ✅ BAGGIFY.PK AI ASSISTANT IS ONLINE!                ║');
-                console.log('║     👋 Assalamualaikum! Main Baggify ki helper hoon      ║');
-                console.log('║     💬 Roman Urdu mein baat karungi                     ║');
-                console.log('║     🎀 Sweet responses guaranteed!                      ║');
-                console.log('║     📦 Products: Storage Bags, Shoulder Bags & More     ║');
+                console.log('║     ✅ BAGGIFY.PK IS ONLINE!                             ║');
+                console.log('║     👋 Assalamualaikum! Professional Assistant           ║');
+                console.log('║     💼 Sirf products ke baare mein baat karega           ║');
+                console.log('║     📦 Storage Bags, Shoulder Bags, Prayer Mats         ║');
                 console.log('║     🚚 Free delivery over Rs. 2,000                    ║');
                 console.log('╚══════════════════════════════════════════════════════════╝\n');
             }
@@ -424,33 +447,35 @@ async function startBot() {
                 // Commands
                 if (lowerText === '/clear' || lowerText === 'clear') {
                     userConversations.delete(sender);
+                    userMessageCount.delete(sender);
                     await sock.sendMessage(sender, { 
-                        text: `💕 Baat cheet saaf kar di! Naye siray se baat shuru karte hain. Main Baggify.pk ki assistant hoon, aapki kya madad kar sakti hoon? 😊✨` 
+                        text: `Assalamualaikum! Baat cheet clear kar di gayi. Naye siray se shuru karte hain. Aap kis product ke baare mein janna chahenge?` 
                     });
                     return;
                 }
                 
-                if (lowerText === '/help' || lowerText === 'help' || lowerText === 'menu') {
-                    const help = `🌟 *BAGGIFY.PK - AI ASSISTANT* 🌟\n\n`;
-                    const help2 = `📝 *Main kya kar sakti hoon:*\n`;
-                    const help3 = `• Products ke baare mein bata sakti hoon 🛍️\n`;
-                    const help4 = `• Prices aur discounts share kar sakti hoon 💰\n`;
-                    const help5 = `• Delivery charges aur policy bata sakti hoon 🚚\n`;
-                    const help6 = `• Best products recommend kar sakti hoon ✨\n\n`;
-                    const help7 = `💬 *Commands:*\n`;
-                    const help8 = `• Products list dekhein: "products" ya "list"\n`;
-                    const help9 = `• Delivery info: "delivery" ya "charges"\n`;
-                    const help10 = `• Specific product: "large bag", "xl bag", etc.\n`;
-                    const help11 = `• Clear chat: /clear\n\n`;
-                    const help12 = `🎀 *Kya aapko kisi product ke baare mein janna hai?*`;
+                if (lowerText === '/help' || lowerText === '/menu') {
+                    const help = `🏪 *BAGGIFY.PK - HELP MENU*\n\n`;
+                    const help2 = `📌 *Main kya kar sakta hoon:*\n`;
+                    const help3 = `• Products ki list dekhna: "list" ya "products"\n`;
+                    const help4 = `• Specific product: "large bag", "xl bag", etc.\n`;
+                    const help5 = `• Delivery info: "delivery" ya "charges"\n`;
+                    const help6 = `• Clear chat: /clear\n\n`;
+                    const help7 = `🛍️ *Available Products:*\n`;
+                    const help8 = `• Large Storage Bag - Rs. 600\n`;
+                    const help9 = `• XL Storage Bag - Rs. 750\n`;
+                    const help10 = `• Medium Storage Bag - Rs. 500\n`;
+                    const help11 = `• Shoulder Bag - Rs. 300\n`;
+                    const help12 = `• Travel Prayer Mat - Rs. 600\n\n`;
+                    const help13 = `💬 *Kya main aapki madad kar sakta hoon?*`;
                     
-                    await sock.sendMessage(sender, { text: help + help2 + help3 + help4 + help5 + help6 + help7 + help8 + help9 + help10 + help11 + help12 });
+                    await sock.sendMessage(sender, { text: help + help2 + help3 + help4 + help5 + help6 + help7 + help8 + help9 + help10 + help11 + help12 + help13 });
                     return;
                 }
 
                 // Send typing indicator
                 await sock.sendPresenceUpdate('composing', sender);
-                console.log(`💭 Thinking for ${senderNumber}...`);
+                console.log(`💭 Processing request for ${senderNumber}...`);
                 
                 const response = await getBaggifyResponse(text, sender);
                 
@@ -479,8 +504,8 @@ startBot().catch(err => {
 });
 
 process.on('SIGINT', () => {
-    console.log('\n\n👋 *Baggify.pk AI Assistant band ho raha hai...*');
-    console.log('✨ Allah Hafiz! Phir milein!');
+    console.log('\n\n👋 *Baggify.pk Assistant band ho raha hai...*');
+    console.log('✨ Allah Hafiz!');
     process.exit(0);
 });
 
