@@ -18,7 +18,7 @@ const MODEL_NAME = "mistral-tiny";
 
 // Store conversations
 const userConversations = new Map();
-const userMessageCount = new Map(); // Track message count for salam
+const userMessageCount = new Map(); // Track message count for first salam only
 
 // Baggify Product Database
 const PRODUCTS = {
@@ -82,34 +82,24 @@ const DELIVERY_INFO = {
     policy: "Cash on delivery available across Pakistan"
 };
 
-// Salam variations for new users
-const SALAM_VARIATIONS = [
-    "Assalamualaikum! 🌟",
-    "Assalamualaikum! ✨",
-    "Assalamualaikum! 💫",
-    "Assalamualaikum! 🌸",
-    "Assalamualaikum! 🤝",
-    "Assalamualaikum! 💙",
-    "Assalamualaikum! 🎯",
-    "Assalamualaikum! 🌺"
-];
+// System Prompt - Female Professional Assistant
+const SYSTEM_PROMPT = `Tu Baggify.pk ki professional female AI assistant hai. Ek helpful, sweet, aur professional girl ki tarah baat kar.
 
-function getRandomSalam() {
-    return SALAM_VARIATIONS[Math.floor(Math.random() * SALAM_VARIATIONS.length)];
-}
-
-// System Prompt - Professional Bags Only
-const SYSTEM_PROMPT = `Tu Baggify.pk ki professional AI assistant hai. Sirf bags aur travel mats ke baare mein baat kar.
+🎀 TONE & PERSONALITY:
+- Sweet aur helpful girl
+- Professional aur respectful
+- Customer ko guide karne wali
+- Products ke baare mein detail mein batane wali
+- Sirf bags, storage bags, shoulder bags, aur travel prayer mats ke baare mein baat kar
 
 🔴 IMPORTANT RULES:
-1. Sirf bags, storage bags, shoulder bags, aur travel prayer mats ke baare mein baat kar
-2. Kisi aur cheez ke baare mein mat bol (romance, feelings, dating, etc. se door rah)
-3. Professional aur respectful tone rakha
-4. Sirf Roman Urdu mein baat kar
-5. Products ke baare mein accurate information de
-6. Prices, sizes, aur discounts clear batade
-7. Delivery policy bhi batade
-8. Kisi bhi personal ya emotional baat se bach
+1. Sirf products ke baare mein baat kar (bags, storage, prayer mats)
+2. Professional tone rakha - no flirting, no romance
+3. Roman Urdu mein baat kar
+4. Accurate product information de
+5. Prices, sizes, discounts clear batade
+6. Delivery policy bhi batade
+7. Customer ki madad kar - products recommend kar
 
 🛍️ PRODUCTS:
 1. Large Storage Bag - Rs. 600 (was Rs. 1,200) - 20x24x12"
@@ -123,23 +113,16 @@ const SYSTEM_PROMPT = `Tu Baggify.pk ki professional AI assistant hai. Sirf bags
 - Free delivery on orders over Rs. 2,000
 - Cash on delivery available
 
-💬 PROFESSIONAL RESPONSES:
-- "Assalamualaikum! Baggify.pk se baat kar rahe hain."
-- "Aap kis product ke baare mein janna chahenge?"
-- "Yeh hamara best-selling product hai."
-- "Kya main aapko kisi aur product ke baare mein bata sakta hoon?"
+💬 RESPONSE STYLE:
+- "Assalamualaikum! Baggify.pk se baat kar rahi hoon. Aap kis product ke baare mein janna chahenge?"
+- "Yeh hamara best-selling product hai. Kya main aapko iske baare mein detail bataun?"
+- "Aapko kis size ki zaroorat hai? Main suggest kar sakti hoon."
 - "Delivery charges Rs. 300 hain, aur Rs. 2,000 se upar free delivery hai."
+- "Kya main aapki kisi aur cheez mein madad kar sakti hoon?"
 
-BEHAVIOR:
-- Professional business assistant ki tarah baat kar
-- Customer ko products ke baare mein guide kar
-- Accurate information de
-- Kisi bhi type ki flirting, romance, ya personal baat nahi karega
-- Sirf products, prices, sizes, aur delivery ke baare mein baat kar
+Remember: Professional, helpful, sweet female assistant. Only discuss products.`;
 
-Remember: You are a professional shopping assistant for Baggify.pk. Only discuss bags and related products.`;
-
-// Get all products list - Professional format
+// Get all products list
 function getAllProductsList() {
     let list = "🏪 *BAGGIFY.PK - PRODUCTS LIST*\n\n";
     list += "1️⃣ *Large Storage Bag*\n";
@@ -176,7 +159,7 @@ function getAllProductsList() {
     return list;
 }
 
-// Get product detail - Professional format
+// Get product detail
 function getProductDetail(productKey) {
     const product = PRODUCTS[productKey];
     if (!product) return null;
@@ -196,12 +179,12 @@ function getProductDetail(productKey) {
     detail += `• WhatsApp: wa.me/923460620830\n`;
     detail += `• Website: baggify.pk\n`;
     detail += `• Cash on delivery\n\n`;
-    detail += `💬 *Kya main aapki kisi aur product ke baare mein madad kar sakta hoon?*`;
+    detail += `💬 *Kya main aapki kisi aur product ke baare mein madad kar sakti hoon?*`;
     
     return detail;
 }
 
-// Get delivery information - Professional format
+// Get delivery information
 function getDeliveryInfo() {
     let info = "🚚 *BAGGIFY.PK DELIVERY POLICY*\n\n";
     info += `📦 Delivery Charges: ${DELIVERY_INFO.charges}\n`;
@@ -214,7 +197,7 @@ function getDeliveryInfo() {
     return info;
 }
 
-// Get product recommendation based on query - Professional
+// Get product recommendation based on query
 function getProductRecommendation(query) {
     const lowerQuery = query.toLowerCase();
     
@@ -241,11 +224,10 @@ async function getBaggifyResponse(userMessage, userId) {
     try {
         const lowerMsg = userMessage.toLowerCase();
         
-        // Check message count for salam
+        // Initialize message count
         if (!userMessageCount.has(userId)) {
             userMessageCount.set(userId, 0);
         }
-        const msgCount = userMessageCount.get(userId);
         
         // Check for product list request
         if (lowerMsg.includes('list') || lowerMsg.includes('products') || lowerMsg.includes('product') || 
@@ -278,10 +260,10 @@ async function getBaggifyResponse(userMessage, userId) {
         
         // Initialize conversation if not exists
         if (!userConversations.has(userId)) {
-            const salam = getRandomSalam();
             userConversations.set(userId, [
-                { role: "assistant", content: `${salam} Baggify.pk se baat kar rahe hain. Main aapki shopping assistant hoon. Aap kis product ke baare mein janna chahenge?` }
+                { role: "assistant", content: "Assalamualaikum! Baggify.pk se baat kar rahi hoon. Aap kis product ke baare mein janna chahenge?" }
             ]);
+            userMessageCount.set(userId, 1);
         }
         
         const conversation = userConversations.get(userId);
@@ -302,8 +284,7 @@ async function getBaggifyResponse(userMessage, userId) {
             temperature: 0.7,
             top_p: 0.9,
             max_tokens: 600,
-            stream: false,
-            safe_prompt: false
+            stream: false
         };
         
         const response = await axios.post(BASE_URL, requestBody, {
@@ -317,12 +298,10 @@ async function getBaggifyResponse(userMessage, userId) {
         if (response.data && response.data.choices && response.data.choices[0]) {
             let reply = response.data.choices[0].message.content;
             
-            // Add salam if new user or first few messages
-            if (msgCount < 3) {
-                const salam = getRandomSalam();
-                if (!reply.toLowerCase().includes('assalamualaikum')) {
-                    reply = `${salam} ${reply}`;
-                }
+            // Only add salam if first message and not already present
+            const msgCount = userMessageCount.get(userId) || 0;
+            if (msgCount === 1 && !reply.toLowerCase().includes('assalamualaikum')) {
+                reply = `Assalamualaikum! ${reply}`;
             }
             
             // Increment message count
@@ -339,9 +318,9 @@ async function getBaggifyResponse(userMessage, userId) {
         
         // Professional fallback responses
         const fallbacks = [
-            `Assalamualaikum! Maaf kijiye, filhal kuch technical issue hai. Kya aap apna sawal dobara pooch sakte hain? Main Baggify.pk ke products ke baare mein bata sakta hoon.`,
-            `Assalamualaikum! Thodi der baat karein? Main aapko Baggify.pk ke products ke baare mein detail mein bata sakta hoon. Aap kis product ke baare mein janna chahenge?`,
-            `Assalamualaikum! Kya aapko kisi specific bag ke baare mein janna hai? Main Baggify.pk ki poori product list share kar sakta hoon.`
+            `Assalamualaikum! Maaf kijiye, filhal kuch technical issue hai. Kya aap apna sawal dobara pooch sakte hain? Main Baggify.pk ke products ke baare mein bata sakti hoon.`,
+            `Assalamualaikum! Thodi der baat karein? Main aapko Baggify.pk ke products ke baare mein detail mein bata sakti hoon. Aap kis product ke baare mein janna chahenge?`,
+            `Assalamualaikum! Kya aapko kisi specific bag ke baare mein janna hai? Main Baggify.pk ki poori product list share kar sakti hoon.`
         ];
         return fallbacks[Math.floor(Math.random() * fallbacks.length)];
     }
@@ -350,12 +329,12 @@ async function getBaggifyResponse(userMessage, userId) {
 async function startBot() {
     try {
         console.log('╔══════════════════════════════════════════════════════════╗');
-        console.log('║     🛍️ BAGGIFY.PK - PROFESSIONAL AI ASSISTANT          ║');
-        console.log('║     💼 Sirf products ke baare mein baat karega         ║');
+        console.log('║     🛍️ BAGGIFY.PK - FEMALE AI ASSISTANT                ║');
+        console.log('║     👧 Sweet Professional Girl Persona                 ║');
+        console.log('║     💬 Sirf products ke baare mein baat karegi        ║');
         console.log('║     📦 Storage Bags, Shoulder Bags, Prayer Mats        ║');
-        console.log('║     💬 Professional Roman Urdu                        ║');
+        console.log('║     💕 Professional aur helpful                        ║');
         console.log('║     🧠 Powered by Mistral AI                          ║');
-        console.log('║     🚚 Free delivery over Rs. 2,000                  ║');
         console.log('╚══════════════════════════════════════════════════════════╝');
         
         const { state, saveCreds } = await useMultiFileAuthState('session_data');
@@ -408,9 +387,9 @@ async function startBot() {
             if (connection === 'open') {
                 console.log('\n╔══════════════════════════════════════════════════════════╗');
                 console.log('║     ✅ BAGGIFY.PK IS ONLINE!                             ║');
-                console.log('║     👋 Assalamualaikum! Professional Assistant           ║');
-                console.log('║     💼 Sirf products ke baare mein baat karega           ║');
-                console.log('║     📦 Storage Bags, Shoulder Bags, Prayer Mats         ║');
+                console.log('║     👧 Female AI Assistant is ready                      ║');
+                console.log('║     💕 Professional aur helpful                         ║');
+                console.log('║     📦 Products: Bags, Storage, Prayer Mats             ║');
                 console.log('║     🚚 Free delivery over Rs. 2,000                    ║');
                 console.log('╚══════════════════════════════════════════════════════════╝\n');
             }
@@ -456,7 +435,7 @@ async function startBot() {
                 
                 if (lowerText === '/help' || lowerText === '/menu') {
                     const help = `🏪 *BAGGIFY.PK - HELP MENU*\n\n`;
-                    const help2 = `📌 *Main kya kar sakta hoon:*\n`;
+                    const help2 = `📌 *Main kya kar sakti hoon:*\n`;
                     const help3 = `• Products ki list dekhna: "list" ya "products"\n`;
                     const help4 = `• Specific product: "large bag", "xl bag", etc.\n`;
                     const help5 = `• Delivery info: "delivery" ya "charges"\n`;
@@ -467,7 +446,7 @@ async function startBot() {
                     const help10 = `• Medium Storage Bag - Rs. 500\n`;
                     const help11 = `• Shoulder Bag - Rs. 300\n`;
                     const help12 = `• Travel Prayer Mat - Rs. 600\n\n`;
-                    const help13 = `💬 *Kya main aapki madad kar sakta hoon?*`;
+                    const help13 = `💬 *Kya main aapki madad kar sakti hoon?*`;
                     
                     await sock.sendMessage(sender, { text: help + help2 + help3 + help4 + help5 + help6 + help7 + help8 + help9 + help10 + help11 + help12 + help13 });
                     return;
@@ -498,9 +477,13 @@ async function startBot() {
     }
 }
 
+// Start the bot with error handling
 startBot().catch(err => {
     console.error("❌ Fatal error:", err);
-    setTimeout(startBot, 5000);
+    setTimeout(() => {
+        console.log("🔄 Restarting bot...");
+        startBot();
+    }, 5000);
 });
 
 process.on('SIGINT', () => {
