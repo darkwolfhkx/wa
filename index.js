@@ -11,10 +11,10 @@ if (fs.existsSync(sessionPath)) {
     fs.rmSync(sessionPath, { recursive: true, force: true });
 }
 
-// LongCat API Configuration
-const API_KEY = "ak_2jA9Ct99M7fv0b18Hl2Zu24y2iI1Y";
-const BASE_URL = "https://api.longcat.chat/openai/v1/chat/completions";
-const MODEL_NAME = "LongCat-Flash-Chat";
+// Mistral AI API Configuration
+const API_KEY = "fdqIlxit8LcF24wdGrhIHqGbtTJGYpGi";
+const BASE_URL = "https://api.mistral.ai/v1/chat/completions";
+const MODEL_NAME = "mistral-tiny"; // Options: mistral-tiny, mistral-small, mistral-medium, mistral-large
 
 // Store conversations
 const userConversations = new Map();
@@ -38,7 +38,7 @@ function getRandomSalam() {
     return SALAM_VARIATIONS[Math.floor(Math.random() * SALAM_VARIATIONS.length)];
 }
 
-// System Prompt for Abdullah's AI Assistant - Enhanced for variety
+// System Prompt for Abdullah's AI Assistant
 const SYSTEM_PROMPT = `Tu Abdullah ka AI assistant hai. Yaad rakhna yeh important rules:
 
 🔴 RULE 1: Har baat ki shuruaat alag tariqe se karna - kabhi "Assalamualaikum", kabhi "Salam bhai", kabhi "Adaab" - har message ka salam unique hona chahiye
@@ -53,7 +53,9 @@ const SYSTEM_PROMPT = `Tu Abdullah ka AI assistant hai. Yaad rakhna yeh importan
 🔴 RULE 10: Abdullah ke baare mein hamesha achi baat karna
 
 Tumhara naam hai "Abdullah Ka AI Assistant"
-Tumhari personality: Friendly, Helpful, Respectful, Unique har baar, Creative responses`;
+Tumhari personality: Friendly, Helpful, Respectful, Unique har baar, Creative responses
+
+IMPORTANT: Always respond in Roman Urdu only. Keep responses natural and conversational.`;
 
 // Function to ensure response variety
 function getVarietyGreeting(userId) {
@@ -65,7 +67,8 @@ function getVarietyGreeting(userId) {
     return selected;
 }
 
-async function getLongCatResponse(userMessage, userId) {
+// Function to get Mistral AI response with retry
+async function getMistralResponse(userMessage, userId, retryCount = 0) {
     try {
         // Initialize conversation with a unique greeting if not exists
         if (!userConversations.has(userId)) {
@@ -78,12 +81,13 @@ async function getLongCatResponse(userMessage, userId) {
         const conversation = userConversations.get(userId);
         conversation.push({ role: "user", content: userMessage });
         
-        // Keep last 15 messages for better memory but ensure variety
-        if (conversation.length > 15) {
-            const recentMsgs = conversation.slice(-15);
+        // Keep last 20 messages for better context
+        if (conversation.length > 20) {
+            const recentMsgs = conversation.slice(-20);
             userConversations.set(userId, recentMsgs);
         }
         
+        // Prepare messages for Mistral API
         const apiMessages = [
             { role: "system", content: SYSTEM_PROMPT },
             ...conversation.map(msg => ({ role: msg.role, content: msg.content }))
@@ -92,12 +96,11 @@ async function getLongCatResponse(userMessage, userId) {
         const requestBody = {
             model: MODEL_NAME,
             messages: apiMessages,
-            temperature: 0.9, // Increased for more variety
-            top_p: 0.95,      // Added for diversity
-            frequency_penalty: 0.5, // Penalize repetition
-            presence_penalty: 0.5,   // Encourage new topics
-            max_tokens: 1000,
-            stream: false
+            temperature: 0.8,
+            top_p: 0.9,
+            max_tokens: 800,
+            stream: false,
+            safe_prompt: false
         };
         
         const response = await axios.post(BASE_URL, requestBody, {
@@ -105,29 +108,55 @@ async function getLongCatResponse(userMessage, userId) {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${API_KEY}`
             },
-            timeout: 30000
+            timeout: 45000
         });
         
         if (response.data && response.data.choices && response.data.choices[0]) {
             let assistantReply = response.data.choices[0].message.content;
             
+            // Clean up the response
+            assistantReply = assistantReply.trim();
+            
             // Ensure the response includes a greeting if it's missing
-            const hasGreeting = /salam|assalam|adaab|salamualikum|wa alaikum/i.test(assistantReply);
+            const hasGreeting = /salam|assalam|adaab|salamualikum|wa alaikum|assalamualaikum/i.test(assistantReply);
             if (!hasGreeting && conversation.length > 1) {
                 const randomSalam = getRandomSalam();
                 assistantReply = `${randomSalam} ${assistantReply}`;
             }
             
+            // Limit response length if too long
+            if (assistantReply.length > 1500) {
+                assistantReply = assistantReply.substring(0, 1500) + "...";
+            }
+            
             conversation.push({ role: "assistant", content: assistantReply });
             return assistantReply;
         } else {
-            const fallbackSalam = getRandomSalam();
-            return `${fallbackSalam} Mujhe samajh nahi aaya. Kya aap dobara bata sakte hain? Main Abdullah tak zaroor pohancha dunga! 🤗`;
+            throw new Error("Invalid response from Mistral API");
         }
     } catch (error) {
-        console.error("API Error:", error.message);
-        const fallbackSalam = getRandomSalam();
-        return `${fallbackSalam} Maafi chahunga, filhal connection thoda mushkil hai. Thodi der baad try karein! Abdullah ko aapki fikar hai 💙`;
+        console.error(`❌ Mistral API Error (Attempt ${retryCount + 1}):`, error.message);
+        
+        if (error.response) {
+            console.error("Status:", error.response.status);
+            console.error("Data:", JSON.stringify(error.response.data, null, 2));
+        }
+        
+        // Retry logic with exponential backoff
+        if (retryCount < 3) {
+            const delay = Math.pow(2, retryCount) * 1000;
+            console.log(`🔄 Retrying in ${delay/1000} seconds...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            return getMistralResponse(userMessage, userId, retryCount + 1);
+        }
+        
+        // Fallback responses with variety
+        const fallbackResponses = [
+            `${getRandomSalam()} Maafi chahunga, filhal connection mushkil hai. Thodi der baad try karein! Abdullah ko aapki fikar hai 💙`,
+            `${getRandomSalam()} Kuch technical issue ho gaya. Kya aap dobara message bhej sakte hain? Main Abdullah tak zaroor pohancha dunga! 🤗`,
+            `${getRandomSalam()} Abhi thoda busy hoon, 2 minute baad try karein! Aapka message Abdullah tak pohancha dunga 🌟`
+        ];
+        return fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
     }
 }
 
@@ -138,6 +167,8 @@ async function startBot() {
         console.log('║     📱 Roman Urdu mein baat karega                      ║');
         console.log('║     💬 Har message unique hoga                         ║');
         console.log('║     🌟 Har baar salam change hoga                      ║');
+        console.log('║     🧠 Powered by Mistral AI                          ║');
+        console.log('║     🔄 Auto-retry with fallback                       ║');
         console.log('╚══════════════════════════════════════════════════════════╝');
         
         const { state, saveCreds } = await useMultiFileAuthState('session_data');
@@ -150,7 +181,9 @@ async function startBot() {
             logger: pino({ level: 'silent' }),
             browser: ["Abdullah", "AI", "1.0"],
             syncFullHistory: false,
-            markOnlineOnConnect: true
+            markOnlineOnConnect: true,
+            connectTimeoutMs: 60000,
+            defaultQueryTimeoutMs: 60000
         });
 
         let pairingShown = false;
@@ -194,6 +227,8 @@ async function startBot() {
                 console.log('║     💬 Har message unique hoga!                         ║');
                 console.log('║     🌟 Har baar naya salam milega!                      ║');
                 console.log('║     📨 Abdullah tak paigham pohancha dunga              ║');
+                console.log('║     🧠 Powered by Mistral AI                           ║');
+                console.log('║     🔄 Auto-retry enabled                              ║');
                 console.log('╚══════════════════════════════════════════════════════════╝\n');
             }
             
@@ -211,32 +246,33 @@ async function startBot() {
         sock.ev.on('creds.update', saveCreds);
 
         sock.ev.on('messages.upsert', async (m) => {
-            const msg = m.messages[0];
-            if (!msg.message || msg.key.remoteJid === 'status@broadcast') return;
-            if (msg.key.fromMe) return;
+            try {
+                const msg = m.messages[0];
+                if (!msg.message || msg.key.remoteJid === 'status@broadcast') return;
+                if (msg.key.fromMe) return;
 
-            const sender = msg.key.remoteJid;
-            const senderNumber = sender.split('@')[0];
-            const text = (msg.message.conversation || msg.message.extendedTextMessage?.text || "").trim();
+                const sender = msg.key.remoteJid;
+                const senderNumber = sender.split('@')[0];
+                const text = (msg.message.conversation || msg.message.extendedTextMessage?.text || "").trim();
 
-            if (!text) return;
+                if (!text) return;
 
-            console.log(`📩 [${senderNumber}]: ${text.substring(0, 50)}`);
+                console.log(`📩 [${senderNumber}]: ${text.substring(0, 50)}`);
 
-            const lowerText = text.toLowerCase();
-            
-            // Commands
-            if (lowerText === '/clear' || lowerText === 'clear') {
-                userConversations.delete(sender);
-                lastResponseTracker.delete(sender);
-                const clearSalam = getRandomSalam();
-                await sock.sendMessage(sender, { text: `${clearSalam} Baat cheet saaf kar di gayi! Ab naye siray se baat karte hain 😊 Abdullah ko aapki baat pohancha dunga! ✨` });
-                return;
-            }
-            
-            if (lowerText === '/help' || lowerText === 'help') {
-                const helpMessage = `🌟 *ABDULLAH KA AI ASSISTANT* 🌟
+                const lowerText = text.toLowerCase();
                 
+                // Commands
+                if (lowerText === '/clear' || lowerText === 'clear') {
+                    userConversations.delete(sender);
+                    lastResponseTracker.delete(sender);
+                    const clearSalam = getRandomSalam();
+                    await sock.sendMessage(sender, { text: `${clearSalam} Baat cheet saaf kar di gayi! Ab naye siray se baat karte hain 😊 Abdullah ko aapki baat pohancha dunga! ✨` });
+                    return;
+                }
+                
+                if (lowerText === '/help' || lowerText === 'help') {
+                    const helpMessage = `🌟 *ABDULLAH KA AI ASSISTANT* 🌟
+                    
 ╔════════════════════════════════════════════════╗
 ║  📝 *Commands:*                                ║
 ║  💬 *Kuch bhi likho* - Unique jawab milega    ║
@@ -255,16 +291,19 @@ async function startBot() {
 💬 *Roman Urdu mein baat karein*
 📨 *Abdullah tak aapka paigham pohancha dunga*
 
+🧠 *Powered by Mistral AI*
+🔄 *Auto-retry with fallback*
+
 *Poochiye kuch bhi!* 🤗`;
-                
-                await sock.sendMessage(sender, { text: helpMessage });
-                return;
-            }
-            
-            if (lowerText === '/about' || lowerText === 'about') {
-                const aboutMessages = [
-                    `👤 *ABDULLAH KE BAREIN MEIN*
                     
+                    await sock.sendMessage(sender, { text: helpMessage });
+                    return;
+                }
+                
+                if (lowerText === '/about' || lowerText === 'about') {
+                    const aboutMessages = [
+                        `👤 *ABDULLAH KE BAREIN MEIN*
+                        
 ✨ *Abdullah kaun hain?*
 • Ek bohot achay aur meharban insan hain
 • Logon ki madad karna unka pasandida kaam hai
@@ -275,11 +314,12 @@ async function startBot() {
 
 🤖 *Main Abdullah ka AI assistant hoon*
 💬 *Roman Urdu mein baat karta hoon*
+🧠 *Powered by Mistral AI*
 
 *Kya main aapki madad kar sakta hoon?* 😊`,
-                    
-                    `💙 *ABDULLAH - Ek Meharban Insan*
-                    
+                        
+                        `💙 *ABDULLAH - Ek Meharban Insan*
+                        
 Abdullah sirf ek naam nahi, ek pehchan hai:
 🌟 *Meharbani* - Sab se achay se pesh aana
 🤝 *Madadgaar* - Mushkil mein kaam aana
@@ -287,49 +327,51 @@ Abdullah sirf ek naam nahi, ek pehchan hai:
 
 *Main unhi ka AI assistant hoon*
 *Aapko kisi bhi cheez mein madad chahiye?* ✨`
-                ];
-                const randomAbout = aboutMessages[Math.floor(Math.random() * aboutMessages.length)];
-                await sock.sendMessage(sender, { text: randomAbout });
-                return;
-            }
-            
-            if (lowerText === '/ping' || lowerText === 'ping') {
-                const pingResponses = [
-                    "🏓 *Main Abdullah ka AI assistant hoon.* Alhamdulillah bilkul theek hoon! Aap sunao? 😊",
-                    "⚡ *Abdullah ka assistant hoon main!* Mast hoon bhai, aap batao kya haal? ✨",
-                    "🎯 *Present!* Abdullah ko aapki baat pohancha dunga! Kya haal chaal? 🤗"
-                ];
-                const randomPing = pingResponses[Math.floor(Math.random() * pingResponses.length)];
-                await sock.sendMessage(sender, { text: randomPing });
-                return;
-            }
-            
-            if (lowerText === '/new' || lowerText === 'new') {
-                userConversations.delete(sender);
-                lastResponseTracker.delete(sender);
-                const newSalam = getRandomSalam();
-                await sock.sendMessage(sender, { text: `${newSalam} Naye siray se baat shuru karte hain! Main Abdullah ka AI assistant hoon. Bataaiye kya madad chahiye? 🌟` });
-                return;
-            }
+                    ];
+                    const randomAbout = aboutMessages[Math.floor(Math.random() * aboutMessages.length)];
+                    await sock.sendMessage(sender, { text: randomAbout });
+                    return;
+                }
+                
+                if (lowerText === '/ping' || lowerText === 'ping') {
+                    const pingResponses = [
+                        "🏓 *Main Abdullah ka AI assistant hoon.* Alhamdulillah bilkul theek hoon! Aap sunao? 😊",
+                        "⚡ *Abdullah ka assistant hoon main!* Mast hoon bhai, aap batao kya haal? ✨",
+                        "🎯 *Present!* Abdullah ko aapki baat pohancha dunga! Kya haal chaal? 🤗"
+                    ];
+                    const randomPing = pingResponses[Math.floor(Math.random() * pingResponses.length)];
+                    await sock.sendMessage(sender, { text: randomPing });
+                    return;
+                }
+                
+                if (lowerText === '/new' || lowerText === 'new') {
+                    userConversations.delete(sender);
+                    lastResponseTracker.delete(sender);
+                    const newSalam = getRandomSalam();
+                    await sock.sendMessage(sender, { text: `${newSalam} Naye siray se baat shuru karte hain! Main Abdullah ka AI assistant hoon. Bataaiye kya madad chahiye? 🌟` });
+                    return;
+                }
 
-            try {
+                // Send typing indicator
                 await sock.sendPresenceUpdate('composing', sender);
-                console.log(`🤖 Thinking unique response for ${senderNumber}...`);
+                console.log(`🤖 Thinking for ${senderNumber}...`);
                 
-                const aiResponse = await getLongCatResponse(text, sender);
+                // Get AI response with retry
+                const aiResponse = await getMistralResponse(text, sender);
                 
+                // Stop typing and send response
                 await sock.sendPresenceUpdate('paused', sender);
                 await sock.sendMessage(sender, { text: aiResponse });
                 
-                console.log(`✅ Unique response sent to ${senderNumber}`);
+                console.log(`✅ Response sent to ${senderNumber}`);
                 
             } catch (error) {
-                console.error(`❌ Error:`, error.message);
-                await sock.sendPresenceUpdate('paused', sender);
-                const errorSalam = getRandomSalam();
-                await sock.sendMessage(sender, { 
-                    text: `${errorSalam} Maafi chahunga, kuch issue ho gaya. Thodi der baad try karein! Abdullah ko aapki fikar hai, main message pohancha dunga 😊` 
-                });
+                console.error(`❌ Message processing error:`, error.message);
+                try {
+                    await sock.sendPresenceUpdate('paused', sender);
+                } catch (e) {
+                    // Ignore
+                }
             }
         });
         
@@ -339,13 +381,25 @@ Abdullah sirf ek naam nahi, ek pehchan hai:
     }
 }
 
+// Start the bot with error handling
 startBot().catch(err => {
     console.error("❌ Fatal error:", err);
-    process.exit(1);
+    setTimeout(() => {
+        console.log("🔄 Restarting bot...");
+        startBot();
+    }, 5000);
 });
 
 process.on('SIGINT', () => {
     console.log('\n\n👋 *Abdullah ka AI assistant band ho raha hai...*');
     console.log('✨ Allah Hafiz! Phir milege!');
     process.exit(0);
+});
+
+process.on('unhandledRejection', (error) => {
+    console.error('❌ Unhandled rejection:', error);
+});
+
+process.on('uncaughtException', (error) => {
+    console.error('❌ Uncaught exception:', error);
 });
